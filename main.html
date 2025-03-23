@@ -1,0 +1,175 @@
+  <!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>硅基API Key聚合管理系统</title>
+    <link rel="icon" type="image/png" href="https://imgbed.killerbest.com/file/1742260658545_siliconcloud-color.png"/>
+    <link rel="stylesheet" href="main.css" />
+    <script src="main.js"></script>
+  </head>
+    <body>
+    <div class="container">
+        <div class="header">
+          <img src="https://imgbed.killerbest.com/file/1742260658545_siliconcloud-color.png" alt="logo" class="logo"/>
+          <h1>硅基流动API Key Sharing</h1>
+          <div class="subtitle">API密钥共享与负载均衡服务</div>
+          <a href="https://github.com/Dr-Ai-0018/Siliconflow-API-Management" target="_blank" class="github-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+            </svg>
+            GitHub
+          </a>
+        </div>
+        
+        <div id="keys-container" class="keys-container">
+          <div class="loading">
+            <div>
+              <span class="loader"></span>
+              <span>加载中...</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="pagination">
+          <button id="prev-page" disabled>&laquo; 上一页</button>
+          <div class="pagination-info">
+              <span id="page-info">第 1 页</span>
+          </div>
+          <button id="next-page" disabled>下一页 &raquo;</button>
+        </div>
+        
+        <div class="counts">
+          <div class="count-item">
+            <div class="count-label">总API Keys</div>
+            <div id="total-count" class="count-value">0</div>
+          </div>
+          <div class="count-item">
+            <div class="count-label">有效API Keys</div>
+            <div id="valid-count" class="count-value">0</div>
+          </div>
+          <div class="count-item">
+            <div class="count-label">总额度</div>
+            <div id="total-balance" class="count-value">0</div>
+          </div>
+        </div>
+        
+        <div class="admin-link">
+          <a href="/admin">管理员入口</a>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+  
+    <div id="auth-modal" class="api-modal">
+      <div class="api-modal-content" style="max-width: 400px;">
+        <div class="api-modal-header">
+          <h3 class="api-modal-title">需要访客认证</h3>
+          <button id="authModalClose" class="api-modal-close">&times;</button>
+        </div>
+        <div class="api-modal-body">
+          <p>此页面受到保护，请输入访客密码继续访问：</p>
+          <div style="margin: 20px 0;">
+            <input type="password" id="guest-password" placeholder="请输入访客密码" style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+            <div id="auth-error" style="color: #e74c3c; margin-top: 8px; font-size: 0.9rem; display: none;">密码不正确，请重试</div>
+          </div>
+        </div>
+        <div class="api-modal-footer" style="padding: 15px 20px; text-align: right; display: flex; justify-content: flex-end;">
+          <button id="verify-guest-btn" class="action-button" style="background: #3498db; color: white;">
+            验证
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 悬浮API按钮 -->
+    <button id="floatApiBtn" class="float-api-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
+        <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+      </svg>
+      API 调用文档
+    </button>
+    
+    <!-- API教程弹窗 -->
+    <div id="apiModal" class="api-modal">
+      <div class="api-modal-content">
+        <div class="api-modal-header">
+          <h3 class="api-modal-title">API 调用教程</h3>
+          <button id="apiModalClose" class="api-modal-close">&times;</button>
+        </div>
+        <div class="api-modal-body">
+          <div class="api-tutorial">
+            <p>硅基流动API负载均衡服务让您可以通过统一的入口访问基于 API Key 的服务，自动为您选择可用的 API Key，实现负载均衡与高可用。</p>
+            
+            <h3>基本使用</h3>
+            <p>调用方式与原始API完全相同，只需将请求地址修改为我们的代理地址，并在请求头中使用您的专属API Key。</p>
+            
+            <div>
+              <div class="code-header">
+                <span>示例请求</span>
+                <button class="copy-btn" data-copy=
+  "
+  curl -X POST '<your-project-domain>/v1/chat/completions' \\
+  -H 'Content-Type: application/json' \\
+  -H 'Authorization: Bearer your-api-key-here' \\
+  -d '{'model': 'Qwen/Qwen2.5-7B-Instruct', 'messages': [{'role': 'user', 'content': '你好'}], 'stream': true}'
+  ">复制</button>
+              </div>
+              
+              <div class="api-code">
+      <span class="comment"># 向负载均衡服务发送请求</span>
+      curl -X POST '<your-project-domain>/v1/chat/completions' \\
+        -H 'Content-Type: application/json' \\
+        -H 'Authorization: Bearer <span class="keyword">your-api-key-here</span>' \\
+        -d '{
+          <span class="string">"model"</span>: <span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+          <span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"你好"</span>}],
+          <span class="string">"stream"</span>: true
+        }'
+              </div>
+            </div>
+            
+            <h3>支持的端点</h3>
+            <p>我们支持硅基流动的所有API端点，您只需将原始API地址替换为我们的代理地址即可：</p>
+            
+            <div>
+              <div class="code-header">
+                <span>端点替换示例</span>
+                <button class="copy-btn" data-copy=" # 原始API地址
+    https://api.siliconflow.cn/v1/...
+  
+    # 替换为
+    <your-project-domain>/v1/...">复制</button>
+              </div>
+              <div class="api-code">
+      <span class="comment"># 原始API地址</span>
+      https://api.siliconflow.cn/v1/...
+  
+      <span class="comment"># 替换为</span>
+      <your-project-domain>/v1/...
+              </div>
+            </div>
+            
+            <h3>获取访问授权</h3>
+            <p>要使用该服务，您需要申请专属的API Key。请联系管理员获取访问权限：</p>
+            
+            <div class="contact-info">
+              管理员邮箱：<a href="mailto:admin@killerbest.com">admin@killerbest.com</a>
+            </div>
+            
+            <h3>主要优势</h3>
+            <ul>
+              <li>自动负载均衡 - 系统自动选择有效的API Key</li>
+              <li>提高可用性 - 单个Key故障不影响整体服务</li>
+              <li>简化管理 - 无需手动切换API Key</li>
+              <li>统一入口 - 使用一个API Key访问所有服务</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <div id="copyright-text">版权所有 &copy; 2025 KillerBest</div>
+  </body>
+</html>

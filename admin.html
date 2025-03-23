@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>硅基流动Token管理 - 管理员</title>
+    <link rel="icon" type="image/png" href="https://imgbed.killerbest.com/file/1742260658545_siliconcloud-color.png" />
+    <link rel="stylesheet" type="text/css" href="admin.css" />
+    <!-- 添加Chart.js库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="admin.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="https://imgbed.killerbest.com/file/1742260658545_siliconcloud-color.png" alt="logo" class="logo" />
+        <h1>硅基流动Token管理 - 管理员</h1>
+        <div class="action-buttons">
+          <a href="https://github.com/Dr-Ai-0018/Siliconflow-API-Management" target="_blank" class="github-link">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+              ></path>
+            </svg>
+            GitHub
+          </a>
+          <a href="/" class="home-link">返回主页</a>
+        </div>
+      </div>
+
+      <div class="tab-container">
+        <div class="tabs">
+          <div class="tab active" data-tab="dashboard">仪表盘</div>
+          <div class="tab" data-tab="keys">管理API Keys</div>
+          <div class="tab" data-tab="settings">系统设置</div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div class="tab-content active" id="dashboard">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">总API Keys</div>
+              <div id="total-keys-stat" class="stat-value">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">有效API Keys</div>
+              <div id="valid-keys-stat" class="stat-value">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">无效API Keys</div>
+              <div id="invalid-keys-stat" class="stat-value">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">平均余额</div>
+              <div id="avg-balance-stat" class="stat-value">-</div>
+            </div>
+          </div>
+
+          <h2>最近添加的API Keys</h2>
+          <div class="table-container">
+            <table id="recent-keys-table">
+              <thead>
+                <tr>
+                  <th>API Key</th>
+                  <th>余额</th>
+                  <th>添加时间</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="4" class="empty-state">加载中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 新增: 图表控制区域 -->
+          <div class="charts-control">
+            <button id="refresh-stats-btn" class="success">刷新统计</button>
+            <button id="update-balances-btn" style="margin-left: 15px">更新所有余额</button>
+            <div class="charts-period-selector">
+              <label>数据周期: </label>
+              <select id="chart-period">
+                <option value="all" selected>全部数据</option>
+                <option value="week">最近7天</option>
+                <option value="month">最近30天</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 新增: 图表区域 -->
+          <div class="charts-grid">
+            <div class="chart-container">
+              <h3>余额分布</h3>
+              <canvas id="balance-distribution-chart"></canvas>
+            </div>
+            <div class="chart-container">
+              <h3>密钥状态分布</h3>
+              <canvas id="key-status-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- 新增: 余额统计信息 -->
+          <div class="balance-stats-container">
+            <div class="balance-stat-card">
+              <div class="balance-stat-icon max">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+              </div>
+              <div class="balance-stat-content">
+                <div class="balance-stat-value" id="max-balance">-</div>
+                <div class="balance-stat-label">最高余额</div>
+              </div>
+            </div>
+            <div class="balance-stat-card">
+              <div class="balance-stat-icon min">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+              <div class="balance-stat-content">
+                <div class="balance-stat-value" id="min-balance">-</div>
+                <div class="balance-stat-label">最低有效余额</div>
+              </div>
+            </div>
+            <div class="balance-stat-card">
+              <div class="balance-stat-icon median">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+              </div>
+              <div class="balance-stat-content">
+                <div class="balance-stat-value" id="median-balance">-</div>
+                <div class="balance-stat-label">中位数余额</div>
+              </div>
+            </div>
+            <div class="balance-stat-card">
+              <div class="balance-stat-icon total">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                </svg>
+              </div>
+              <div class="balance-stat-content">
+                <div class="balance-stat-value" id="total-balance">-</div>
+                <div class="balance-stat-label">总余额</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 新增: 使用趋势图 -->
+          <div class="chart-full-container">
+            <h3>余额趋势</h3>
+            <div class="chart-options">
+              <button id="toggle-trend-view" class="chart-option-btn">显示/隐藏异常值</button>
+              <div class="chart-range-selector">
+                <label>显示范围:</label>
+                <select id="trend-range">
+                  <option value="10">前10项</option>
+                  <option value="20" selected>前20项</option>
+                  <option value="50">前50项</option>
+                  <option value="all">全部</option>
+                </select>
+              </div>
+            </div>
+            <canvas id="balance-trend-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Keys Management Tab -->
+        <div class="tab-content" id="keys">
+          <div class="batch-actions">
+            <h3 class="batch-actions-title">API Key 管理</h3>
+
+            <div class="delimiter-control">
+              <label for="delimiter-select">分隔符:</label>
+              <select id="delimiter-select" class="form-control-sm">
+                <option value="newline" selected>换行符</option>
+                <option value="comma">逗号</option>
+                <option value="space">空格</option>
+                <option value="semicolon">分号</option>
+                <option value="tab">制表符</option>
+                <option value="custom">自定义...</option>
+              </select>
+              <span id="delimiter-display" class="delimiter-preview">"\\n"</span>
+              <input
+                type="text"
+                id="custom-delimiter"
+                class="form-control-sm"
+                style="display: none; width: 60px; margin-left: 5px"
+                maxlength="10"
+                placeholder="自定义"
+              />
+            </div>
+
+            <div class="batch-actions-controls">
+              <button id="toggle-batch-config" class="secondary action-button">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                  ></path>
+                </svg>
+                <span>设置</span>
+              </button>
+              <button id="check-selected-keys" class="action-button" disabled>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 6v6l4 2"></path>
+                </svg>
+                <span>检测</span>
+              </button>
+              <button id="delete-selected-keys" class="danger action-button" disabled>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>删除</span>
+                <!-- 导出密钥 -->
+              </button>
+              <button id="export-selected-keys" class="action-button" disabled>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>导出</span>
+              </button>
+              <div class="dropdown">
+                <button id="more-actions" class="secondary action-button">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="19" cy="12" r="1"></circle>
+                    <circle cx="5" cy="12" r="1"></circle>
+                  </svg>
+                  <span>更多</span>
+                </button>
+                <div class="dropdown-content">
+                  <a href="#" id="clear-invalid-keys">一键清除无效密钥</a>
+                  <a href="#" id="export-valid-keys">导出所有有效密钥</a>
+                  <a href="#" id="export-balance-keys">导出高余额密钥</a>
+                  <a href="#" id="copy-all-keys">复制所有密钥</a>
+                  <a href="#" id="copy-selected-keys">复制所选密钥</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- 添加余额过滤导出模态框 -->
+            <div id="balance-filter-modal" class="modal-backdrop">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h3 class="modal-title">导出高于指定余额的密钥</h3>
+                  <button class="modal-close" onclick="closeBalanceFilterModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                  <p>请输入最低余额阈值，将导出所有余额高于该值的密钥：</p>
+                  <div class="form-group">
+                    <input
+                      type="number"
+                      id="min-balance-input"
+                      class="modal-input"
+                      value="10"
+                      min="0"
+                      step="0.01"
+                      placeholder="最低余额"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label> <input type="checkbox" id="include-balances" checked /> 包含余额值 </label>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="secondary" onclick="closeBalanceFilterModal()">取消</button>
+                  <button id="export-filtered-keys" class="success">导出</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 批量检测设置 -->
+            <div id="batch-config-panel" class="batch-config-panel">
+              <div class="config-section">
+                <div class="config-section-title">批量测试-高级设置</div>
+                <div class="config-grid">
+                  <div class="batch-config-item">
+                    <label for="interval-type">间隔类型</label>
+                    <div class="select-wrapper">
+                      <select id="interval-type" class="enhanced-select">
+                        <option value="fixed">固定间隔</option>
+                        <option value="random" selected>随机间隔</option>
+                      </select>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div class="batch-config-item">
+                    <label for="min-interval">最小间隔 (ms)</label>
+                    <input type="number" id="min-interval" value="500" min="100" max="10000" />
+                  </div>
+
+                  <div class="batch-config-item">
+                    <label for="max-interval">最大间隔 (ms)</label>
+                    <input type="number" id="max-interval" value="1500" min="100" max="10000" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="config-section">
+                <div class="config-section-title">请求间隔与重试</div>
+                <div class="config-grid">
+                  <div class="batch-config-item">
+                    <label for="concurrency">固定间隔秒数</label>
+                    <input type="number" id="concurrency" value="1" min="0" step="0.1" max="100" />
+                  </div>
+
+                  <div class="batch-config-item">
+                    <label for="retry-count">重试次数</label>
+                    <input type="number" id="retry-count" value="1" min="0" max="5" />
+                  </div>
+
+                  <div class="batch-config-item">
+                    <label for="retry-interval">重试间隔 (ms)</label>
+                    <input type="number" id="retry-interval" value="2000" min="0" max="10000" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="key-management-container">
+            <!-- 左侧：添加单个Key -->
+            <div class="key-panel">
+              <div class="form-group">
+                <label for="add-key-input">添加单个API Key</label>
+                <div class="input-button-group">
+                  <input type="text" id="add-key-input" placeholder="输入API Key" />
+                  <button id="add-key-btn" class="action-button primary-btn">
+                    <span>添加</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 选择控件 -->
+              <div class="selection-controls">
+                <span id="selection-count" class="selection-count">已选择 0 个 Key</span>
+                <label class="select-all-container">
+                  <input type="checkbox" id="select-all-keys" />
+                  <span>全选/取消全选</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 右侧：批量添加Keys -->
+            <div class="key-panel">
+              <div class="form-group">
+                <label for="bulk-keys-input">批量添加API Keys（每行一个）</label>
+                <textarea id="bulk-keys-input" placeholder="每行输入一个API Key"></textarea>
+                <button id="add-bulk-keys-btn" class="action-button primary-btn full-width">
+                  <span>批量添加</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <h2>所有API Keys</h2>
+          <div class="table-container">
+            <table id="all-keys-table">
+              <thead>
+                <tr>
+                  <th width="50px">序号</th>
+                  <th width="30px"><input type="checkbox" id="select-all-table" /></th>
+                  <th>API Key</th>
+                  <th>余额</th>
+                  <th>最后更新时间</th>
+                  <th>添加时间</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="6" class="empty-state">加载中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="tab-content" id="settings">
+          <form id="settings-form" onsubmit="saveSettings(event)">
+            <div class="form-group">
+              <label for="api-key-input">API代理密钥</label>
+              <input type="text" id="api-key-input" placeholder="设置API代理密钥" />
+              <small style="display: block; margin-top: 5px; color: #7f8c8d">用于API代理请求的鉴权密钥</small>
+
+              <div style="margin-top: 20px">
+                <label for="admin-username-input">管理员用户名</label>
+                <input type="text" id="admin-username-input" placeholder="设置管理员用户名" />
+              </div>
+
+              <div style="margin-top: 20px">
+                <label for="admin-password-input">管理员密码</label>
+                <input
+                  type="password"
+                  id="admin-password-input"
+                  placeholder="设置管理员密码"
+                  autocomplete="new-password"
+                />
+              </div>
+
+              <div style="margin-top: 20px">
+                <label for="page-size-input">每页显示数量</label>
+                <input type="number" id="page-size-input" placeholder="设置每页显示数量" min="1" max="100" />
+              </div>
+
+              <div style="margin-top: 20px">
+                <label for="access-control-select">访问控制模式</label>
+                <select id="access-control-select" class="form-control">
+                  <option value="open">完全开放</option>
+                  <option value="restricted">部分开放</option>
+                  <option value="private">完全私有</option>
+                </select>
+                <small style="display: block; margin-top: 5px; color: #7f8c8d">
+                  完全开放：所有访客都可以查看密钥列表<br />
+                  部分开放：需要输入访客密码才能查看<br />
+                  完全私有：只有管理员登录后才能查看
+                </small>
+              </div>
+            </div>
+
+            <div class="form-group" id="guest-password-group" style="display: none">
+              <label for="guest-password-input">访客密码</label>
+              <input type="password" id="guest-password-input" placeholder="设置访客密码" autocomplete="new-password" />
+              <small style="display: block; margin-top: 5px; color: #7f8c8d"
+                >当选择"部分开放"模式时，访客需要输入此密码才能查看密钥列表</small
+              >
+            </div>
+
+            <button type="submit" id="save-settings-btn">保存设置</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="custom-modal" class="modal-backdrop">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">提示</h3>
+          <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="modal-message">内容</p>
+          <div id="modal-input-container" style="display: none">
+            <input type="text" id="modal-input" class="modal-input" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="modal-cancel" class="secondary" onclick="closeModal()">取消</button>
+          <button id="modal-confirm" onclick="handleModalConfirm()">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="progress-container" class="progress-container">
+      <div class="progress-header">
+        <span class="progress-title">更新密钥余额中</span>
+        <button class="progress-close" onclick="hideProgress()">&times;</button>
+      </div>
+      <div class="progress-bar-container">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+      <div class="progress-stats">
+        <span id="progress-text" class="progress-text">0/0 (0%)</span>
+        <span id="progress-success-rate" class="progress-success-rate">成功: 0</span>
+      </div>
+      <div id="progress-details" class="progress-details">
+        <div class="progress-details-row">
+          <span class="progress-details-label">处理速度:</span>
+          <span id="progress-speed" class="progress-details-value speed">计算中...</span>
+        </div>
+        <div class="progress-details-row">
+          <span class="progress-details-label">预计剩余时间:</span>
+          <span id="progress-eta" class="progress-details-value eta">计算中...</span>
+        </div>
+        <div class="progress-details-row">
+          <span class="progress-details-label">已用时间:</span>
+          <span id="progress-elapsed" class="progress-details-value">0秒</span>
+        </div>
+      </div>
+      <button id="stop-batch-process" class="stop-batch-button">停止检测</button>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </body>
+</html>
