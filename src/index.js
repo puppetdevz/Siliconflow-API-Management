@@ -695,6 +695,20 @@ async function handleAPIProxy(request, path) {
 	const allKeys = await getAllKeys();
 	const validKeys = allKeys.filter((k) => k.balance > 0);
 
+	// 获取所有 Key 的总余额
+	if (path === '/v1/dashboard/billing/subscription') {
+		const totalBalance = validKeys.reduce((sum, key) => sum + key.balance, 0);
+		return new Response(
+			JSON.stringify({
+				success: true,
+				balance: totalBalance,
+			}),
+			{
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
 	if (validKeys.length === 0) {
 		return new Response(
 			JSON.stringify({
