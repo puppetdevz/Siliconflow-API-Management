@@ -1,887 +1,906 @@
 // Configuration (可以通过管理员界面覆盖)
 const CONFIG = {
-  ADMIN_USERNAME: "default-admin-username", // 默认管理员用户名
-  ADMIN_PASSWORD: "default-admin-password", // 默认管理员密码
-  API_KEY: "default-api-key", // 用于代理认证的默认API密钥
-  PAGE_SIZE: 12, // 主界面每页显示的密钥数量
-  ACCESS_CONTROL: "open", // 访问控制模式: "open", "restricted", "private"
-  GUEST_PASSWORD: "guest_password", // 访客密码，用于restricted模式
+	ADMIN_USERNAME: 'default-admin-username', // 默认管理员用户名
+	ADMIN_PASSWORD: 'default-admin-password', // 默认管理员密码
+	API_KEY: 'default-api-key', // 用于代理认证的默认API密钥
+	PAGE_SIZE: 12, // 主界面每页显示的密钥数量
+	ACCESS_CONTROL: 'open', // 访问控制模式: "open", "restricted", "private"
+	GUEST_PASSWORD: 'guest_password', // 访客密码，用于restricted模式
 };
 
 // 设置环境变量以供全局使用
 export default {
-  async fetch(request, env) {
-    // 将env保存为全局变量，便于其他函数访问D1
-    globalThis.env = env;
-    return handleRequest(request);
-  }
+	async fetch(request, env) {
+		// 将env保存为全局变量，便于其他函数访问D1
+		globalThis.env = env;
+		return handleRequest(request);
+	},
 };
 
 async function handleRequest(request) {
-  const url = new URL(request.url);
-  const path = url.pathname;
+	const url = new URL(request.url);
+	const path = url.pathname;
 
-  // 处理预检请求
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-        status: 204,
-        headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-            "Access-Control-Max-Age": "86400", // 24小时缓存预检请求结果
-            "Access-Control-Allow-Credentials": "true"
-        }
-    });
-  }
+	// 处理预检请求
+	if (request.method === 'OPTIONS') {
+		return new Response(null, {
+			status: 204,
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+				'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+				'Access-Control-Max-Age': '86400', // 24小时缓存预检请求结果
+				'Access-Control-Allow-Credentials': 'true',
+			},
+		});
+	}
 
-  // 管理员界面路由
-  if (path === "/admin" || path === "/admin/") {
-    return handleAdminInterface(request);
-  }
-  
-  if (path.startsWith("/admin/api/")) {
-    return handleAdminAPI(request, path.replace("/admin/api/", ""));
-  }
+	// 管理员界面路由
+	if (path === '/admin' || path === '/admin/') {
+		return handleAdminInterface(request);
+	}
 
-  // API代理路由 - 转发请求到siliconflow API并进行负载均衡
-  if (path.startsWith("/v1/")) {
-    return handleAPIProxy(request, path);
-  }
+	if (path.startsWith('/admin/api/')) {
+		return handleAdminAPI(request, path.replace('/admin/api/', ''));
+	}
 
-  // 主界面
-  return handleMainInterface(request);
+	// API代理路由 - 转发请求到siliconflow API并进行负载均衡
+	if (path.startsWith('/v1/')) {
+		return handleAPIProxy(request, path);
+	}
+
+	// 主界面
+	return handleMainInterface(request);
 }
 
 // 访客认证中间件
 async function authenticateGuest(request) {
-  const config = await getConfiguration();
-  
-  // 如果是完全开放的，直接通过认证
-  if (config.accessControl === "open") {
-    return true;
-  }
-  
-  // 如果是完全私有的，仅允许管理员访问，检查管理员认证
-  if (config.accessControl === "private") {
-    return await authenticateAdmin(request);
-  }
-  
-  // 部分开放模式，检查访客密码
-  if (config.accessControl === "restricted") {
-    // 获取Authorization头
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return false;
-    }
+	const config = await getConfiguration();
 
-    // 检查访客token
-    const guestToken = authHeader.replace("Bearer ", "").trim();
-    
-    // 验证访客密码
-    return guestToken === config.guestPassword;
-  }
-  
-  // 默认拒绝访问
-  return false;
+	// 如果是完全开放的，直接通过认证
+	if (config.accessControl === 'open') {
+		return true;
+	}
+
+	// 如果是完全私有的，仅允许管理员访问，检查管理员认证
+	if (config.accessControl === 'private') {
+		return await authenticateAdmin(request);
+	}
+
+	// 部分开放模式，检查访客密码
+	if (config.accessControl === 'restricted') {
+		// 获取Authorization头
+		const authHeader = request.headers.get('Authorization');
+		if (!authHeader || !authHeader.startsWith('Bearer ')) {
+			return false;
+		}
+
+		// 检查访客token
+		const guestToken = authHeader.replace('Bearer ', '').trim();
+
+		// 验证访客密码
+		return guestToken === config.guestPassword;
+	}
+
+	// 默认拒绝访问
+	return false;
 }
 
 // 管理员认证中间件
 async function authenticateAdmin(request) {
-  try {
-    // 从D1数据库查询管理员凭据
-    const adminUsername = await getConfigValue('admin_username', CONFIG.ADMIN_USERNAME);
-    const adminPassword = await getConfigValue('admin_password', CONFIG.ADMIN_PASSWORD);
-    
-    // 获取Authorization头
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Basic ")) {
-      return false;
-    }
+	try {
+		// 从D1数据库查询管理员凭据
+		const adminUsername = await getConfigValue('admin_username', CONFIG.ADMIN_USERNAME);
+		const adminPassword = await getConfigValue('admin_password', CONFIG.ADMIN_PASSWORD);
 
-    // 解码并验证凭据
-    const encodedCredentials = authHeader.split(" ")[1];
-    const decodedCredentials = atob(encodedCredentials);
-    const [username, password] = decodedCredentials.split(":");
-    
-    return username === adminUsername && password === adminPassword;
-  } catch (error) {
-    console.error("认证出错:", error);
-    return false;
-  }
+		// 获取Authorization头
+		const authHeader = request.headers.get('Authorization');
+		if (!authHeader || !authHeader.startsWith('Basic ')) {
+			return false;
+		}
+
+		// 解码并验证凭据
+		const encodedCredentials = authHeader.split(' ')[1];
+		const decodedCredentials = atob(encodedCredentials);
+		const [username, password] = decodedCredentials.split(':');
+
+		return username === adminUsername && password === adminPassword;
+	} catch (error) {
+		console.error('认证出错:', error);
+		return false;
+	}
 }
 
 // 处理管理员界面
 async function handleAdminInterface(request) {
-  const isAuthenticated = await authenticateAdmin(request);
-  
-  if (!isAuthenticated) {
-    return new Response("Unauthorized", {
-      status: 401,
-      headers: {
-        "WWW-Authenticate": "Basic realm=\"Admin Interface\""
-      }
-    });
-  }
-  
-  return new Response(adminHtmlContent, {
-    headers: { "Content-Type": "text/html;charset=UTF-8" }
-  });
+	const isAuthenticated = await authenticateAdmin(request);
+
+	if (!isAuthenticated) {
+		return new Response('Unauthorized', {
+			status: 401,
+			headers: {
+				'WWW-Authenticate': 'Basic realm="Admin Interface"',
+			},
+		});
+	}
+
+	return new Response(adminHtmlContent, {
+		headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+	});
 }
 
 // 为每个密钥单独更新检查时间，避免批量请求出现流锁定问题
 async function updateKeyLastCheckTime(key, lastUpdated) {
-  try {
-    await env.db.prepare(
-      `UPDATE keys SET last_updated = ? WHERE key = ?`
-    ).bind(lastUpdated, key).run();
-    
-    return true;
-  } catch (error) {
-    console.error(`更新密钥 ${key} 时间失败:`, error);
-    return false;
-  }
+	try {
+		await env.db.prepare(`UPDATE keys SET last_updated = ? WHERE key = ?`).bind(lastUpdated, key).run();
+
+		return true;
+	} catch (error) {
+		console.error(`更新密钥 ${key} 时间失败:`, error);
+		return false;
+	}
 }
 
 // 处理管理员API端点
 async function handleAdminAPI(request, endpoint) {
-  
-  // 特殊处理pageSize请求，无需鉴权
-  if (endpoint === "pageSize") {
-    const pageSize = parseInt(await getConfigValue('page_size', CONFIG.PAGE_SIZE));
-    return new Response(JSON.stringify({ success: true, data: pageSize }), {
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  
-  // keys端点无需验证，其他端点需要验证
-  if (endpoint === "keys") {
-    // 获取所有密钥，如果不是管理员调用，需要进行访客认证
-    if (!await authenticateAdmin(request) && !await authenticateGuest(request)) {
-      return new Response(JSON.stringify({
-        success: false,
-        message: "需要认证",
-        requireAuth: true,
-        accessControl: (await getConfiguration()).accessControl
-      }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-    
-    const keys = await getAllKeys();
-    return new Response(JSON.stringify({ success: true, data: keys }), {
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  // 添加获取访问控制配置的端点
-  else if (endpoint === "access-control") {
-    // 这个端点可以公开访问，用于前端判断认证方式
-    const config = await getConfiguration();
-    return new Response(JSON.stringify({
-      success: true,
-      data: {
-        accessControl: config.accessControl
-      }
-    }), {
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  // 添加访客验证的端点
-  else if (endpoint === "verify-guest") {
-    const data = await request.json();
-    const config = await getConfiguration();
-    
-    if (config.accessControl !== "restricted") {
-      return new Response(JSON.stringify({
-        success: false,
-        message: "当前模式不需要访客认证"
-      }), {
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-    
-    // 验证访客密码
-    if (data.password === config.guestPassword) {
-      return new Response(JSON.stringify({
-        success: true,
-        token: config.guestPassword
-      }), {
-        headers: { "Content-Type": "application/json" }
-      });
-    } else {
-      return new Response(JSON.stringify({
-        success: false,
-        message: "访客密码不正确"
-      }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-  }
+	// 特殊处理pageSize请求，无需鉴权
+	if (endpoint === 'pageSize') {
+		const pageSize = parseInt(await getConfigValue('page_size', CONFIG.PAGE_SIZE));
+		return new Response(JSON.stringify({ success: true, data: pageSize }), {
+			headers: { 'Content-Type': 'application/json' },
+		});
+	}
 
-  try {
-    if (request.method === "GET") {
-      // GET端点
-      if (endpoint === "keys") {
-        // 获取所有密钥
-        const keys = await getAllKeys();
-        return new Response(JSON.stringify({ success: true, data: keys }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      } else if (endpoint === "config") {
-        // 获取配置
-        const config = await getConfiguration();
-        return new Response(JSON.stringify({ success: true, data: config }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-    } else if (request.method === "POST") {
-      
-      if (endpoint === "add-key") {
-        const data = await request.json();
-        // 添加新密钥
-        if (!data.key) {
-          return new Response(JSON.stringify({ success: false, message: "Key is required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-        await addKey(data.key, data.balance || 0);
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      } else if (endpoint === "add-keys-bulk") {
-        const data = await request.json();
-        // 批量添加密钥（每行一个）
-        if (!data.keys) {
-          return new Response(JSON.stringify({ success: false, message: "Keys are required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-        
-        const keys = data.keys.split("\n").map(k => k.trim()).filter(k => k);
-        
-        // 使用批量添加函数
-        await addKeys(keys, 0);
-        
-        // 直接返回添加的key字符串数组
-        return new Response(JSON.stringify({
-          success: true,
-          count: keys.length,
-          addedKeys: keys,  // 直接返回API Key字符串数组
-          autoCheck: true   // 标记前端需要自动触发检查
-        }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      } else if (endpoint === "delete-key") {
-        const data = await request.json();
-        // 删除密钥
-        if (!data.key) {
-          return new Response(JSON.stringify({ success: false, message: "Key is required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-        await deleteKey(data.key);
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      } else if (endpoint === "update-config") {
-        const data = await request.json();
-        // 更新配置
-        await updateConfiguration(data);
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      } else if (endpoint === "update-balances") {
-        const data = await request.json();
-        try {
-          // 执行实际更新操作
-          const result = await updateAllKeyBalances();
-          
-          return new Response(JSON.stringify(result), {
-            headers: { "Content-Type": "application/json" }
-          });
-        } catch (error) {
-          console.error("更新密钥余额时出错:", error);
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: `更新失败: ${error.message || "未知错误"}` 
-          }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-      } else if (endpoint === "update-key-balance") {
-        const data = await request.json();
-        if (!data.key) {
-          return new Response(JSON.stringify({ success: false, message: "密钥不能为空" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-        
-        // 检查密钥是否存在
-        const keyExists = await env.db.prepare(
-          `SELECT key FROM keys WHERE key = ?`
-        ).bind(data.key).first();
-        
-        if (!keyExists) {
-          return new Response(JSON.stringify({ success: false, message: "密钥不存在" }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-        
-        // 更新单个密钥的余额
-        try {
-          // 使用优化后的检测方法
-          const result = await checkKeyValidity(data.key);
-          const now = new Date().toISOString();
-          
-          // 更新密钥状态到D1数据库
-          await env.db.prepare(
-            `UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`
-          ).bind(result.balance, now, data.key).run();
-          
-          return new Response(JSON.stringify({ 
-            success: result.isValid, 
-            balance: result.balance,
-            message: result.message,
-            key: data.key,
-            isValid: result.isValid,
-            lastUpdated: now
-          }), {
-            headers: { "Content-Type": "application/json" }
-          });
-        } catch (error) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: "检测余额失败: " + error.message 
-          }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-      } else if (endpoint === "update-keys-balance") {
-        try {
-          // 首先验证管理员权限
-          const authHeader = request.headers.get("Authorization");
-          if (!authHeader || !authHeader.startsWith("Basic ")) {
-            return new Response(JSON.stringify({ success: false, message: "认证失败" }), {
-              status: 401,
-              headers: { "Content-Type": "application/json" }
-            });
-          }
-      
-          // 解码并验证凭据
-          const encodedCredentials = authHeader.split(" ")[1];
-          const decodedCredentials = atob(encodedCredentials);
-          const [username, password] = decodedCredentials.split(":");
-          
-          // 从D1数据库查询管理员凭据
-          const adminUsername = await getConfigValue('admin_username', CONFIG.ADMIN_USERNAME);
-          const adminPassword = await getConfigValue('admin_password', CONFIG.ADMIN_PASSWORD);
-          
-          // 验证凭据
-          if (username !== adminUsername || password !== adminPassword) {
-            return new Response(JSON.stringify({ success: false, message: "认证失败" }), {
-              status: 401,
-              headers: { "Content-Type": "application/json" }
-            });
-          }
-          
-          // 只读取一次请求体
-          const data = await request.json();
-          
-          // 验证keys数组
-          if (!data || !data.keys || !Array.isArray(data.keys) || data.keys.length === 0) {
-            return new Response(JSON.stringify({ 
-              success: false, 
-              message: "请提供要检测的密钥列表"
-            }), {
-              status: 400,
-              headers: { "Content-Type": "application/json" }
-            });
-          }
-          
-          // 获取要检测的密钥
-          const keysToCheck = data.keys;
-          const now = new Date().toISOString();
-          
-          // 优化：不要分别查询每个密钥是否存在，而是一次性查询所有密钥
-          const existingKeysQuery = await env.db.prepare(
-            `SELECT key FROM keys WHERE key IN (${keysToCheck.map(() => '?').join(',')})`
-          ).bind(...keysToCheck).all();
-          
-          // 创建一个Set来快速检查密钥是否存在
-          const existingKeysSet = new Set();
-          for (const row of existingKeysQuery.results || []) {
-            existingKeysSet.add(row.key);
-          }
-          
-          // 创建所有密钥检测的Promise数组 - 后端完全并发处理
-          const checkPromises = keysToCheck.map(async (key) => {
-            try {
-              // 使用Set快速检查密钥是否存在
-              if (!existingKeysSet.has(key)) {
-                return {
-                  key,
-                  success: false,
-                  isValid: false,
-                  balance: 0,
-                  lastUpdated: now,
-                  message: "密钥不存在"
-                };
-              }
-              
-              // 检测密钥余额
-              const result = await checkKeyValidity(key);
-              
-              // 更新D1数据库中的余额和最后更新时间
-              await env.db.prepare(
-                `UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`
-              ).bind(result.balance, now, key).run();
-              
-              return {
-                key,
-                success: true,
-                isValid: result.isValid,
-                balance: result.balance,
-                lastUpdated: now,
-                message: result.message
-              };
-            } catch (error) {
-              console.error(`检测密钥 ${key} 失败:`, error);
-              return {
-                key,
-                success: false,
-                isValid: false,
-                balance: 0,
-                lastUpdated: now,
-                message: `检测失败: ${error.message || "未知错误"}`
-              };
-            }
-          });
-          
-          // 并发执行所有检测Promise
-          const results = await Promise.all(checkPromises);
-          
-          return new Response(JSON.stringify({
-            success: true,
-            results: results,
-            count: results.length,
-            validCount: results.filter(r => r.isValid).length
-          }), {
-            headers: { "Content-Type": "application/json" }
-          });
-        } catch (error) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: "处理请求时出错: " + (error.message || "未知错误"),
-            stack: error.stack
-          }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-      } else if (endpoint === "batch-update-keys") {
-        try {
-          // 验证管理员权限或访客权限
-          if (!await authenticateAdmin(request) && !await authenticateGuest(request)) {
-            return new Response(JSON.stringify({ success: false, message: "认证失败" }), {
-              status: 401,
-              headers: { "Content-Type": "application/json" }
-            });
-          }
-          
-          // 解析请求体
-          const data = await request.json();
-          
-          // 验证结果数组
-          if (!data || !data.results || !Array.isArray(data.results) || data.results.length === 0) {
-            return new Response(JSON.stringify({ 
-              success: false, 
-              message: "请提供要更新的密钥结果列表"
-            }), {
-              status: 400,
-              headers: { "Content-Type": "application/json" }
-            });
-          }
-          
-          const now = new Date().toISOString();
-          const updatePromises = [];
-          const results = [];
-          
-          // 批量处理所有更新请求
-          for (const result of data.results) {
-            try {
-              // 检查必要字段
-              if (!result.key) {
-                results.push({
-                  success: false,
-                  message: "密钥不能为空"
-                });
-                continue;
-              }
-              
-              // 准备更新语句
-              const updateStmt = env.db.prepare(
-                `UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`
-              ).bind(
-                result.balance || 0, 
-                now, 
-                result.key
-              );
-              
-              // 添加到批量操作中
-              updatePromises.push(
-                updateStmt.run().then(() => {
-                  results.push({
-                    key: result.key,
-                    success: true,
-                    updated: now
-                  });
-                }).catch(error => {
-                  console.error(`更新密钥 ${result.key} 失败:`, error);
-                  results.push({
-                    key: result.key,
-                    success: false,
-                    message: `数据库更新失败: ${error.message || "未知错误"}`
-                  });
-                })
-              );
-            } catch (error) {
-              results.push({
-                key: result.key || "未知密钥",
-                success: false,
-                message: `处理更新失败: ${error.message || "未知错误"}`
-              });
-            }
-          }
-          
-          // 等待所有更新完成
-          await Promise.all(updatePromises);
-          
-          // 统计更新结果
-          const successCount = results.filter(r => r.success).length;
-          const failCount = results.length - successCount;
-          
-          return new Response(JSON.stringify({
-            success: true,
-            updated: successCount,
-            failed: failCount,
-            total: results.length,
-            results: results
-          }), {
-            headers: { "Content-Type": "application/json" }
-          });
-        } catch (error) {
-          console.error("批量更新密钥时出错:", error);
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: "处理请求时出错: " + (error.message || "未知错误")
-          }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" }
-          });
-        }
-      }
-    } else if (request.method === "DELETE") {
-      if (endpoint.startsWith("keys/")) {
-        const key = endpoint.replace("keys/", "");
-        await deleteKey(key);
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-    } 
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, message: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  
-  // 如果没有匹配的端点
-  return new Response(JSON.stringify({ success: false, message: "无效的端点" }), {
-    status: 404,
-    headers: { "Content-Type": "application/json" }
-  });
+	// keys端点无需验证，其他端点需要验证
+	if (endpoint === 'keys') {
+		// 获取所有密钥，如果不是管理员调用，需要进行访客认证
+		if (!(await authenticateAdmin(request)) && !(await authenticateGuest(request))) {
+			return new Response(
+				JSON.stringify({
+					success: false,
+					message: '需要认证',
+					requireAuth: true,
+					accessControl: (await getConfiguration()).accessControl,
+				}),
+				{
+					status: 401,
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
+		}
+
+		const keys = await getAllKeys();
+		return new Response(JSON.stringify({ success: true, data: keys }), {
+			headers: { 'Content-Type': 'application/json' },
+		});
+	}
+	// 添加获取访问控制配置的端点
+	else if (endpoint === 'access-control') {
+		// 这个端点可以公开访问，用于前端判断认证方式
+		const config = await getConfiguration();
+		return new Response(
+			JSON.stringify({
+				success: true,
+				data: {
+					accessControl: config.accessControl,
+				},
+			}),
+			{
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+	// 添加访客验证的端点
+	else if (endpoint === 'verify-guest') {
+		const data = await request.json();
+		const config = await getConfiguration();
+
+		if (config.accessControl !== 'restricted') {
+			return new Response(
+				JSON.stringify({
+					success: false,
+					message: '当前模式不需要访客认证',
+				}),
+				{
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
+		}
+
+		// 验证访客密码
+		if (data.password === config.guestPassword) {
+			return new Response(
+				JSON.stringify({
+					success: true,
+					token: config.guestPassword,
+				}),
+				{
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
+		} else {
+			return new Response(
+				JSON.stringify({
+					success: false,
+					message: '访客密码不正确',
+				}),
+				{
+					status: 401,
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
+		}
+	}
+
+	try {
+		if (request.method === 'GET') {
+			// GET端点
+			if (endpoint === 'keys') {
+				// 获取所有密钥
+				const keys = await getAllKeys();
+				return new Response(JSON.stringify({ success: true, data: keys }), {
+					headers: { 'Content-Type': 'application/json' },
+				});
+			} else if (endpoint === 'config') {
+				// 获取配置
+				const config = await getConfiguration();
+				return new Response(JSON.stringify({ success: true, data: config }), {
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+		} else if (request.method === 'POST') {
+			if (endpoint === 'add-key') {
+				const data = await request.json();
+				// 添加新密钥
+				if (!data.key) {
+					return new Response(JSON.stringify({ success: false, message: 'Key is required' }), {
+						status: 400,
+						headers: { 'Content-Type': 'application/json' },
+					});
+				}
+				await addKey(data.key, data.balance || 0);
+				return new Response(JSON.stringify({ success: true }), {
+					headers: { 'Content-Type': 'application/json' },
+				});
+			} else if (endpoint === 'add-keys-bulk') {
+				const data = await request.json();
+				// 批量添加密钥（每行一个）
+				if (!data.keys) {
+					return new Response(JSON.stringify({ success: false, message: 'Keys are required' }), {
+						status: 400,
+						headers: { 'Content-Type': 'application/json' },
+					});
+				}
+
+				const keys = data.keys
+					.split('\n')
+					.map((k) => k.trim())
+					.filter((k) => k);
+
+				// 使用批量添加函数
+				await addKeys(keys, 0);
+
+				// 直接返回添加的key字符串数组
+				return new Response(
+					JSON.stringify({
+						success: true,
+						count: keys.length,
+						addedKeys: keys, // 直接返回API Key字符串数组
+						autoCheck: true, // 标记前端需要自动触发检查
+					}),
+					{
+						headers: { 'Content-Type': 'application/json' },
+					}
+				);
+			} else if (endpoint === 'delete-key') {
+				const data = await request.json();
+				// 删除密钥
+				if (!data.key) {
+					return new Response(JSON.stringify({ success: false, message: 'Key is required' }), {
+						status: 400,
+						headers: { 'Content-Type': 'application/json' },
+					});
+				}
+				await deleteKey(data.key);
+				return new Response(JSON.stringify({ success: true }), {
+					headers: { 'Content-Type': 'application/json' },
+				});
+			} else if (endpoint === 'update-config') {
+				const data = await request.json();
+				// 更新配置
+				await updateConfiguration(data);
+				return new Response(JSON.stringify({ success: true }), {
+					headers: { 'Content-Type': 'application/json' },
+				});
+			} else if (endpoint === 'update-balances') {
+				const data = await request.json();
+				try {
+					// 执行实际更新操作
+					const result = await updateAllKeyBalances();
+
+					return new Response(JSON.stringify(result), {
+						headers: { 'Content-Type': 'application/json' },
+					});
+				} catch (error) {
+					console.error('更新密钥余额时出错:', error);
+					return new Response(
+						JSON.stringify({
+							success: false,
+							message: `更新失败: ${error.message || '未知错误'}`,
+						}),
+						{
+							status: 500,
+							headers: { 'Content-Type': 'application/json' },
+						}
+					);
+				}
+			} else if (endpoint === 'update-key-balance') {
+				const data = await request.json();
+				if (!data.key) {
+					return new Response(JSON.stringify({ success: false, message: '密钥不能为空' }), {
+						status: 400,
+						headers: { 'Content-Type': 'application/json' },
+					});
+				}
+
+				// 检查密钥是否存在
+				const keyExists = await env.db.prepare(`SELECT key FROM keys WHERE key = ?`).bind(data.key).first();
+
+				if (!keyExists) {
+					return new Response(JSON.stringify({ success: false, message: '密钥不存在' }), {
+						status: 404,
+						headers: { 'Content-Type': 'application/json' },
+					});
+				}
+
+				// 更新单个密钥的余额
+				try {
+					// 使用优化后的检测方法
+					const result = await checkKeyValidity(data.key);
+					const now = new Date().toISOString();
+
+					// 更新密钥状态到D1数据库
+					await env.db.prepare(`UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`).bind(result.balance, now, data.key).run();
+
+					return new Response(
+						JSON.stringify({
+							success: result.isValid,
+							balance: result.balance,
+							message: result.message,
+							key: data.key,
+							isValid: result.isValid,
+							lastUpdated: now,
+						}),
+						{
+							headers: { 'Content-Type': 'application/json' },
+						}
+					);
+				} catch (error) {
+					return new Response(
+						JSON.stringify({
+							success: false,
+							message: '检测余额失败: ' + error.message,
+						}),
+						{
+							status: 500,
+							headers: { 'Content-Type': 'application/json' },
+						}
+					);
+				}
+			} else if (endpoint === 'update-keys-balance') {
+				try {
+					// 首先验证管理员权限
+					const authHeader = request.headers.get('Authorization');
+					if (!authHeader || !authHeader.startsWith('Basic ')) {
+						return new Response(JSON.stringify({ success: false, message: '认证失败' }), {
+							status: 401,
+							headers: { 'Content-Type': 'application/json' },
+						});
+					}
+
+					// 解码并验证凭据
+					const encodedCredentials = authHeader.split(' ')[1];
+					const decodedCredentials = atob(encodedCredentials);
+					const [username, password] = decodedCredentials.split(':');
+
+					// 从D1数据库查询管理员凭据
+					const adminUsername = await getConfigValue('admin_username', CONFIG.ADMIN_USERNAME);
+					const adminPassword = await getConfigValue('admin_password', CONFIG.ADMIN_PASSWORD);
+
+					// 验证凭据
+					if (username !== adminUsername || password !== adminPassword) {
+						return new Response(JSON.stringify({ success: false, message: '认证失败' }), {
+							status: 401,
+							headers: { 'Content-Type': 'application/json' },
+						});
+					}
+
+					// 只读取一次请求体
+					const data = await request.json();
+
+					// 验证keys数组
+					if (!data || !data.keys || !Array.isArray(data.keys) || data.keys.length === 0) {
+						return new Response(
+							JSON.stringify({
+								success: false,
+								message: '请提供要检测的密钥列表',
+							}),
+							{
+								status: 400,
+								headers: { 'Content-Type': 'application/json' },
+							}
+						);
+					}
+
+					// 获取要检测的密钥
+					const keysToCheck = data.keys;
+					const now = new Date().toISOString();
+
+					// 优化：不要分别查询每个密钥是否存在，而是一次性查询所有密钥
+					const existingKeysQuery = await env.db
+						.prepare(`SELECT key FROM keys WHERE key IN (${keysToCheck.map(() => '?').join(',')})`)
+						.bind(...keysToCheck)
+						.all();
+
+					// 创建一个Set来快速检查密钥是否存在
+					const existingKeysSet = new Set();
+					for (const row of existingKeysQuery.results || []) {
+						existingKeysSet.add(row.key);
+					}
+
+					// 创建所有密钥检测的Promise数组 - 后端完全并发处理
+					const checkPromises = keysToCheck.map(async (key) => {
+						try {
+							// 使用Set快速检查密钥是否存在
+							if (!existingKeysSet.has(key)) {
+								return {
+									key,
+									success: false,
+									isValid: false,
+									balance: 0,
+									lastUpdated: now,
+									message: '密钥不存在',
+								};
+							}
+
+							// 检测密钥余额
+							const result = await checkKeyValidity(key);
+
+							// 更新D1数据库中的余额和最后更新时间
+							await env.db.prepare(`UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`).bind(result.balance, now, key).run();
+
+							return {
+								key,
+								success: true,
+								isValid: result.isValid,
+								balance: result.balance,
+								lastUpdated: now,
+								message: result.message,
+							};
+						} catch (error) {
+							console.error(`检测密钥 ${key} 失败:`, error);
+							return {
+								key,
+								success: false,
+								isValid: false,
+								balance: 0,
+								lastUpdated: now,
+								message: `检测失败: ${error.message || '未知错误'}`,
+							};
+						}
+					});
+
+					// 并发执行所有检测Promise
+					const results = await Promise.all(checkPromises);
+
+					return new Response(
+						JSON.stringify({
+							success: true,
+							results: results,
+							count: results.length,
+							validCount: results.filter((r) => r.isValid).length,
+						}),
+						{
+							headers: { 'Content-Type': 'application/json' },
+						}
+					);
+				} catch (error) {
+					return new Response(
+						JSON.stringify({
+							success: false,
+							message: '处理请求时出错: ' + (error.message || '未知错误'),
+							stack: error.stack,
+						}),
+						{
+							status: 500,
+							headers: { 'Content-Type': 'application/json' },
+						}
+					);
+				}
+			} else if (endpoint === 'batch-update-keys') {
+				try {
+					// 验证管理员权限或访客权限
+					if (!(await authenticateAdmin(request)) && !(await authenticateGuest(request))) {
+						return new Response(JSON.stringify({ success: false, message: '认证失败' }), {
+							status: 401,
+							headers: { 'Content-Type': 'application/json' },
+						});
+					}
+
+					// 解析请求体
+					const data = await request.json();
+
+					// 验证结果数组
+					if (!data || !data.results || !Array.isArray(data.results) || data.results.length === 0) {
+						return new Response(
+							JSON.stringify({
+								success: false,
+								message: '请提供要更新的密钥结果列表',
+							}),
+							{
+								status: 400,
+								headers: { 'Content-Type': 'application/json' },
+							}
+						);
+					}
+
+					const now = new Date().toISOString();
+					const updatePromises = [];
+					const results = [];
+
+					// 批量处理所有更新请求
+					for (const result of data.results) {
+						try {
+							// 检查必要字段
+							if (!result.key) {
+								results.push({
+									success: false,
+									message: '密钥不能为空',
+								});
+								continue;
+							}
+
+							// 准备更新语句
+							const updateStmt = env.db
+								.prepare(`UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`)
+								.bind(result.balance || 0, now, result.key);
+
+							// 添加到批量操作中
+							updatePromises.push(
+								updateStmt
+									.run()
+									.then(() => {
+										results.push({
+											key: result.key,
+											success: true,
+											updated: now,
+										});
+									})
+									.catch((error) => {
+										console.error(`更新密钥 ${result.key} 失败:`, error);
+										results.push({
+											key: result.key,
+											success: false,
+											message: `数据库更新失败: ${error.message || '未知错误'}`,
+										});
+									})
+							);
+						} catch (error) {
+							results.push({
+								key: result.key || '未知密钥',
+								success: false,
+								message: `处理更新失败: ${error.message || '未知错误'}`,
+							});
+						}
+					}
+
+					// 等待所有更新完成
+					await Promise.all(updatePromises);
+
+					// 统计更新结果
+					const successCount = results.filter((r) => r.success).length;
+					const failCount = results.length - successCount;
+
+					return new Response(
+						JSON.stringify({
+							success: true,
+							updated: successCount,
+							failed: failCount,
+							total: results.length,
+							results: results,
+						}),
+						{
+							headers: { 'Content-Type': 'application/json' },
+						}
+					);
+				} catch (error) {
+					console.error('批量更新密钥时出错:', error);
+					return new Response(
+						JSON.stringify({
+							success: false,
+							message: '处理请求时出错: ' + (error.message || '未知错误'),
+						}),
+						{
+							status: 500,
+							headers: { 'Content-Type': 'application/json' },
+						}
+					);
+				}
+			}
+		} else if (request.method === 'DELETE') {
+			if (endpoint.startsWith('keys/')) {
+				const key = endpoint.replace('keys/', '');
+				await deleteKey(key);
+				return new Response(JSON.stringify({ success: true }), {
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+		}
+	} catch (error) {
+		return new Response(JSON.stringify({ success: false, message: error.message }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' },
+		});
+	}
+
+	// 如果没有匹配的端点
+	return new Response(JSON.stringify({ success: false, message: '无效的端点' }), {
+		status: 404,
+		headers: { 'Content-Type': 'application/json' },
+	});
 }
 
 // 处理主界面
 async function handleMainInterface(request) {
-  return new Response(mainHtmlContent, {
-    headers: { "Content-Type": "text/html;charset=UTF-8" }
-  });
+	return new Response(mainHtmlContent, {
+		headers: { 'Content-Type': 'text/html;charset=UTF-8' },
+	});
 }
 
 // 处理API代理，带负载均衡
 async function handleAPIProxy(request, path) {
-  // 验证API请求
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ 
-      error: { message: "需要认证" } 
-    }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  
-  // 从Authorization头中提取token
-  const providedToken = authHeader.replace("Bearer ", "").trim();
-  
-  // 从D1获取API密钥
-  const apiKey = await getConfigValue('api_key', CONFIG.API_KEY);
-  
-  if (providedToken !== apiKey) {
-    return new Response(JSON.stringify({ 
-      error: { message: "无效的API密钥" } 
-    }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  
-  // 获取所有有效密钥用于负载均衡
-  const allKeys = await getAllKeys();
-  const validKeys = allKeys.filter(k => k.balance > 0);
-  
-  if (validKeys.length === 0) {
-    return new Response(JSON.stringify({ 
-      error: { message: "没有可用的API密钥" } 
-    }), {
-      status: 503,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-  
-  // 负载均衡 - 随机选择一个密钥
-  const randomIndex = Math.floor(Math.random() * validKeys.length);
-  const selectedKey = validKeys[randomIndex].key;
-  
-  // 克隆请求并修改头信息
-  const newHeaders = new Headers(request.headers);
-  newHeaders.set("Authorization", `Bearer ${selectedKey}`);
-  
-  // 移除host头以避免冲突
-  newHeaders.delete("host");
-  
-  // 创建新请求
-  const newRequest = new Request(`https://api.siliconflow.cn${path}`, {
-    method: request.method,
-    headers: newHeaders,
-    body: request.body,
-    redirect: 'follow'
-  });
-  
-  // 转发请求
-  const response = await fetch(newRequest);
-  
-  // 创建一个新的响应用于流式传输（如果需要）
-  const newResponse = new Response(response.body, response);
-  
-  // 添加完整的CORS头
-  newResponse.headers.set("Access-Control-Allow-Origin", "*");
-  newResponse.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  newResponse.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-  newResponse.headers.set("Access-Control-Allow-Credentials", "true");
-  newResponse.headers.set("Access-Control-Max-Age", "86400");
-  
-  // 禁用缓存以支持流式传输
-  newResponse.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  newResponse.headers.set("Pragma", "no-cache");
-  newResponse.headers.set("Expires", "0");
-  
-  return newResponse;
-}
+	// 验证API请求
+	const authHeader = request.headers.get('Authorization');
+	if (!authHeader) {
+		return new Response(
+			JSON.stringify({
+				error: { message: '需要认证' },
+			}),
+			{
+				status: 401,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
 
+	// 从Authorization头中提取token
+	const providedToken = authHeader.replace('Bearer ', '').trim();
+
+	// 从D1获取API密钥
+	const apiKey = await getConfigValue('api_key', CONFIG.API_KEY);
+
+	if (providedToken !== apiKey) {
+		return new Response(
+			JSON.stringify({
+				error: { message: '无效的API密钥' },
+			}),
+			{
+				status: 401,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	// 获取所有有效密钥用于负载均衡
+	const allKeys = await getAllKeys();
+	const validKeys = allKeys.filter((k) => k.balance > 0);
+
+	if (validKeys.length === 0) {
+		return new Response(
+			JSON.stringify({
+				error: { message: '没有可用的API密钥' },
+			}),
+			{
+				status: 503,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	// 负载均衡 - 随机选择一个密钥
+	const randomIndex = Math.floor(Math.random() * validKeys.length);
+	const selectedKey = validKeys[randomIndex].key;
+
+	// 克隆请求并修改头信息
+	const newHeaders = new Headers(request.headers);
+	newHeaders.set('Authorization', `Bearer ${selectedKey}`);
+
+	// 移除host头以避免冲突
+	newHeaders.delete('host');
+
+	// 创建新请求
+	const newRequest = new Request(`https://api.siliconflow.cn${path}`, {
+		method: request.method,
+		headers: newHeaders,
+		body: request.body,
+		redirect: 'follow',
+	});
+
+	// 转发请求
+	const response = await fetch(newRequest);
+
+	// 创建一个新的响应用于流式传输（如果需要）
+	const newResponse = new Response(response.body, response);
+
+	// 添加完整的CORS头
+	newResponse.headers.set('Access-Control-Allow-Origin', '*');
+	newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+	newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+	newResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+	newResponse.headers.set('Access-Control-Max-Age', '86400');
+
+	// 禁用缓存以支持流式传输
+	newResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+	newResponse.headers.set('Pragma', 'no-cache');
+	newResponse.headers.set('Expires', '0');
+
+	return newResponse;
+}
 
 // D1工具函数 - 获取配置值
 async function getConfigValue(name, defaultValue) {
-  try {
-    const result = await env.db.prepare(
-      `SELECT value FROM config WHERE name = ?`
-    ).bind(name).first();
-    
-    return result ? result.value : defaultValue;
-  } catch (error) {
-    console.error(`获取配置 ${name} 时出错:`, error);
-    return defaultValue;
-  }
+	try {
+		const result = await env.db.prepare(`SELECT value FROM config WHERE name = ?`).bind(name).first();
+
+		return result ? result.value : defaultValue;
+	} catch (error) {
+		console.error(`获取配置 ${name} 时出错:`, error);
+		return defaultValue;
+	}
 }
 
 // 获取所有密钥
 async function getAllKeys() {
-  try {
-    const result = await env.db.prepare(
-      `SELECT key, balance, added, last_updated as lastUpdated FROM keys ORDER BY balance DESC`
-    ).all();
-    
-    return result.results || [];
-  } catch (error) {
-    console.error("获取密钥时出错:", error);
-    return [];
-  }
+	try {
+		const result = await env.db.prepare(`SELECT key, balance, added, last_updated as lastUpdated FROM keys ORDER BY balance DESC`).all();
+
+		return result.results || [];
+	} catch (error) {
+		console.error('获取密钥时出错:', error);
+		return [];
+	}
 }
 
 // 添加单个密钥
 async function addKey(key, balance = 0) {
-  try {
-    const now = new Date().toISOString();
-    
-    await env.db.prepare(
-      `INSERT OR REPLACE INTO keys (key, balance, added, last_updated) 
+	try {
+		const now = new Date().toISOString();
+
+		await env.db
+			.prepare(
+				`INSERT OR REPLACE INTO keys (key, balance, added, last_updated)
        VALUES (?, ?, ?, ?)`
-    ).bind(key, balance, now, null).run();
-    
-    return true;
-  } catch (error) {
-    console.error(`添加密钥 ${key} 时出错:`, error);
-    return false;
-  }
+			)
+			.bind(key, balance, now, null)
+			.run();
+
+		return true;
+	} catch (error) {
+		console.error(`添加密钥 ${key} 时出错:`, error);
+		return false;
+	}
 }
 
 // 批量添加密钥
 async function addKeys(keys, balance = 0) {
-  try {
-    const now = new Date().toISOString();
-    const batch = [];
-    
-    for (const key of keys) {
-      batch.push(
-        env.db.prepare(
-          `INSERT OR REPLACE INTO keys (key, balance, added, last_updated) 
+	try {
+		const now = new Date().toISOString();
+		const batch = [];
+
+		for (const key of keys) {
+			batch.push(
+				env.db
+					.prepare(
+						`INSERT OR REPLACE INTO keys (key, balance, added, last_updated)
            VALUES (?, ?, ?, ?)`
-        ).bind(key, balance, now, null)
-      );
-    }
-    
-    await env.db.batch(batch);
-    return true;
-  } catch (error) {
-    console.error("批量添加密钥时出错:", error);
-    return false;
-  }
+					)
+					.bind(key, balance, now, null)
+			);
+		}
+
+		await env.db.batch(batch);
+		return true;
+	} catch (error) {
+		console.error('批量添加密钥时出错:', error);
+		return false;
+	}
 }
 
 // 删除密钥
 async function deleteKey(key) {
-  try {
-    await env.db.prepare(
-      `DELETE FROM keys WHERE key = ?`
-    ).bind(key).run();
-    
-    return true;
-  } catch (error) {
-    console.error(`删除密钥 ${key} 时出错:`, error);
-    return false;
-  }
+	try {
+		await env.db.prepare(`DELETE FROM keys WHERE key = ?`).bind(key).run();
+
+		return true;
+	} catch (error) {
+		console.error(`删除密钥 ${key} 时出错:`, error);
+		return false;
+	}
 }
 
 // 获取配置
 async function getConfiguration() {
-  try {
-    const configs = await env.db.prepare(
-      `SELECT name, value FROM config`
-    ).all();
-    
-    // 转换为映射结构
-    const configMap = {};
-    for (const row of configs.results) {
-      configMap[row.name] = row.value;
-    }
-    
-    return {
-      apiKey: configMap.api_key || CONFIG.API_KEY,
-      adminUsername: configMap.admin_username || CONFIG.ADMIN_USERNAME,
-      adminPassword: configMap.admin_password || CONFIG.ADMIN_PASSWORD,
-      pageSize: parseInt(configMap.page_size || CONFIG.PAGE_SIZE),
-      accessControl: configMap.access_control || CONFIG.ACCESS_CONTROL,
-      guestPassword: configMap.guest_password || CONFIG.GUEST_PASSWORD,
-    };
-  } catch (error) {
-    console.error("获取配置时出错:", error);
-    // 出错时返回默认配置
-    return {
-      apiKey: CONFIG.API_KEY,
-      adminUsername: CONFIG.ADMIN_USERNAME,
-      adminPassword: CONFIG.ADMIN_PASSWORD,
-      pageSize: CONFIG.PAGE_SIZE,
-      accessControl: CONFIG.ACCESS_CONTROL,
-      guestPassword: CONFIG.GUEST_PASSWORD,
-    };
-  }
+	try {
+		const configs = await env.db.prepare(`SELECT name, value FROM config`).all();
+
+		// 转换为映射结构
+		const configMap = {};
+		for (const row of configs.results) {
+			configMap[row.name] = row.value;
+		}
+
+		return {
+			apiKey: configMap.api_key || CONFIG.API_KEY,
+			adminUsername: configMap.admin_username || CONFIG.ADMIN_USERNAME,
+			adminPassword: configMap.admin_password || CONFIG.ADMIN_PASSWORD,
+			pageSize: parseInt(configMap.page_size || CONFIG.PAGE_SIZE),
+			accessControl: configMap.access_control || CONFIG.ACCESS_CONTROL,
+			guestPassword: configMap.guest_password || CONFIG.GUEST_PASSWORD,
+		};
+	} catch (error) {
+		console.error('获取配置时出错:', error);
+		// 出错时返回默认配置
+		return {
+			apiKey: CONFIG.API_KEY,
+			adminUsername: CONFIG.ADMIN_USERNAME,
+			adminPassword: CONFIG.ADMIN_PASSWORD,
+			pageSize: CONFIG.PAGE_SIZE,
+			accessControl: CONFIG.ACCESS_CONTROL,
+			guestPassword: CONFIG.GUEST_PASSWORD,
+		};
+	}
 }
 
 // 更新配置
 async function updateConfiguration(config) {
-  const updates = [];
-  
-  try {
-    // 准备参数化SQL批量更新
-    if (config.apiKey !== undefined) {
-      updates.push(
-        env.db.prepare(
-          `INSERT OR REPLACE INTO config (name, value) VALUES ('api_key', ?)`
-        ).bind(config.apiKey)
-      );
-    }
-    
-    if (config.adminUsername !== undefined) {
-      updates.push(
-        env.db.prepare(
-          `INSERT OR REPLACE INTO config (name, value) VALUES ('admin_username', ?)`
-        ).bind(config.adminUsername)
-      );
-    }
-    
-    if (config.adminPassword !== undefined) {
-      updates.push(
-        env.db.prepare(
-          `INSERT OR REPLACE INTO config (name, value) VALUES ('admin_password', ?)`
-        ).bind(config.adminPassword)
-      );
-    }
-    
-    if (config.pageSize !== undefined) {
-      updates.push(
-        env.db.prepare(
-          `INSERT OR REPLACE INTO config (name, value) VALUES ('page_size', ?)`
-        ).bind(config.pageSize.toString())
-      );
-    }
-    
-    if (config.accessControl !== undefined) {
-      updates.push(
-        env.db.prepare(
-          `INSERT OR REPLACE INTO config (name, value) VALUES ('access_control', ?)`
-        ).bind(config.accessControl)
-      );
-    }
-    
-    if (config.guestPassword !== undefined) {
-      updates.push(
-        env.db.prepare(
-          `INSERT OR REPLACE INTO config (name, value) VALUES ('guest_password', ?)`
-        ).bind(config.guestPassword)
-      );
-    }
-    
-    // 执行所有更新
-    if (updates.length > 0) {
-      await env.db.batch(updates);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("更新配置时出错:", error);
-    return false;
-  }
+	const updates = [];
+
+	try {
+		// 准备参数化SQL批量更新
+		if (config.apiKey !== undefined) {
+			updates.push(env.db.prepare(`INSERT OR REPLACE INTO config (name, value) VALUES ('api_key', ?)`).bind(config.apiKey));
+		}
+
+		if (config.adminUsername !== undefined) {
+			updates.push(env.db.prepare(`INSERT OR REPLACE INTO config (name, value) VALUES ('admin_username', ?)`).bind(config.adminUsername));
+		}
+
+		if (config.adminPassword !== undefined) {
+			updates.push(env.db.prepare(`INSERT OR REPLACE INTO config (name, value) VALUES ('admin_password', ?)`).bind(config.adminPassword));
+		}
+
+		if (config.pageSize !== undefined) {
+			updates.push(env.db.prepare(`INSERT OR REPLACE INTO config (name, value) VALUES ('page_size', ?)`).bind(config.pageSize.toString()));
+		}
+
+		if (config.accessControl !== undefined) {
+			updates.push(env.db.prepare(`INSERT OR REPLACE INTO config (name, value) VALUES ('access_control', ?)`).bind(config.accessControl));
+		}
+
+		if (config.guestPassword !== undefined) {
+			updates.push(env.db.prepare(`INSERT OR REPLACE INTO config (name, value) VALUES ('guest_password', ?)`).bind(config.guestPassword));
+		}
+
+		// 执行所有更新
+		if (updates.length > 0) {
+			await env.db.batch(updates);
+		}
+
+		return true;
+	} catch (error) {
+		console.error('更新配置时出错:', error);
+		return false;
+	}
 }
 
 /**
@@ -889,159 +908,152 @@ async function updateConfiguration(config) {
  * 首先验证密钥是否有效，然后查询余额
  */
 async function checkKeyValidity(key) {
-  try {
-    // 1. 验证密钥有效性
-    const validationResponse = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "Qwen/Qwen2.5-7B-Instruct",
-        messages: [{ role: "user", content: "hi" }],
-        max_tokens: 100,
-        stream: false
-      })
-    });
-    
-    if (!validationResponse.ok) {
-      const errorData = await validationResponse.json().catch(() => null);
-      const errorMessage = errorData && errorData.error && errorData.error.message 
-        ? errorData.error.message 
-        : "密钥验证失败";
-        
-      return {
-        isValid: false,
-        balance: 0,
-        message: errorMessage
-      };
-    }
-    
-    // 2. 查询余额
-    const balanceResponse = await fetch("https://api.siliconflow.cn/v1/user/info", {
-      method: "GET",
-      headers: { "Authorization": `Bearer ${key}` }
-    });
-    
-    if (!balanceResponse.ok) {
-      const errorData = await balanceResponse.json().catch(() => null);
-      const errorMessage = errorData && errorData.error && errorData.error.message 
-        ? errorData.error.message 
-        : "余额查询失败";
-        
-      return {
-        isValid: false,
-        balance: 0,
-        message: errorMessage
-      };
-    }
-    
-    const data = await balanceResponse.json();
-    const balance = data.data && data.data.totalBalance || 0;
-    
-    return {
-      isValid: true,
-      balance: balance,
-      message: "验证成功"
-    };
-  } catch (error) {
-    console.error("检测密钥时出错:", error);
-    return {
-      isValid: false,
-      balance: 0,
-      message: `网络错误: ${error.message || "未知错误"}`
-    };
-  }
+	try {
+		// 1. 验证密钥有效性
+		const validationResponse = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${key}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				model: 'Qwen/Qwen2.5-7B-Instruct',
+				messages: [{ role: 'user', content: 'hi' }],
+				max_tokens: 100,
+				stream: false,
+			}),
+		});
+
+		if (!validationResponse.ok) {
+			const errorData = await validationResponse.json().catch(() => null);
+			const errorMessage = errorData && errorData.error && errorData.error.message ? errorData.error.message : '密钥验证失败';
+
+			return {
+				isValid: false,
+				balance: 0,
+				message: errorMessage,
+			};
+		}
+
+		// 2. 查询余额
+		const balanceResponse = await fetch('https://api.siliconflow.cn/v1/user/info', {
+			method: 'GET',
+			headers: { Authorization: `Bearer ${key}` },
+		});
+
+		if (!balanceResponse.ok) {
+			const errorData = await balanceResponse.json().catch(() => null);
+			const errorMessage = errorData && errorData.error && errorData.error.message ? errorData.error.message : '余额查询失败';
+
+			return {
+				isValid: false,
+				balance: 0,
+				message: errorMessage,
+			};
+		}
+
+		const data = await balanceResponse.json();
+		const balance = (data.data && data.data.totalBalance) || 0;
+
+		return {
+			isValid: true,
+			balance: balance,
+			message: '验证成功',
+		};
+	} catch (error) {
+		console.error('检测密钥时出错:', error);
+		return {
+			isValid: false,
+			balance: 0,
+			message: `网络错误: ${error.message || '未知错误'}`,
+		};
+	}
 }
 
 // 更新所有密钥余额
 async function updateAllKeyBalances() {
-  try {
-    // 获取所有密钥
-    const keys = await getAllKeys();
-    
-    if (keys.length === 0) {
-      return {
-        success: true,
-        updated: 0,
-        failed: 0,
-        results: []
-      };
-    }
-    
-    // 使用分批处理以避免大量并发API请求
-    const batchSize = 10; // 每批处理10个密钥
-    let updatedCount = 0;
-    let failedCount = 0;
-    const results = [];
-    const now = new Date().toISOString();
-    
-    // 分批处理
-    for (let i = 0; i < keys.length; i += batchSize) {
-      const batch = keys.slice(i, i + batchSize);
-      
-      // 批量检测当前批次的密钥
-      const batchPromises = batch.map(async (keyObj) => {
-        try {
-          const result = await checkKeyValidity(keyObj.key);
-          
-          // 更新数据库中的余额和最后检查时间
-          await env.db.prepare(
-            `UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`
-          ).bind(result.balance, now, keyObj.key).run();
-          
-          const keyResult = { 
-            key: keyObj.key, 
-            success: result.isValid, 
-            balance: result.balance,
-            message: result.message 
-          };
-          
-          if (result.isValid) {
-            updatedCount++;
-          } else {
-            failedCount++;
-          }
-          
-          return keyResult;
-        } catch (error) {
-          console.error(`处理密钥 ${keyObj.key} 时出错:`, error);
-          
-          failedCount++;
-          return { 
-            key: keyObj.key, 
-            success: false, 
-            message: `处理出错: ${error.message}` 
-          };
-        }
-      });
-      
-      // 等待当前批次所有密钥处理完成
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
-      
-      // 在批次之间添加短暂延迟，避免API速率限制
-      if (i + batchSize < keys.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-    
-    return {
-      success: true,
-      updated: updatedCount,
-      failed: failedCount,
-      results: results
-    };
-  } catch (error) {
-    console.error("更新密钥余额时出错:", error);
-    return {
-      success: false,
-      message: `更新失败: ${error.message}`
-    };
-  }
-}
+	try {
+		// 获取所有密钥
+		const keys = await getAllKeys();
 
+		if (keys.length === 0) {
+			return {
+				success: true,
+				updated: 0,
+				failed: 0,
+				results: [],
+			};
+		}
+
+		// 使用分批处理以避免大量并发API请求
+		const batchSize = 10; // 每批处理10个密钥
+		let updatedCount = 0;
+		let failedCount = 0;
+		const results = [];
+		const now = new Date().toISOString();
+
+		// 分批处理
+		for (let i = 0; i < keys.length; i += batchSize) {
+			const batch = keys.slice(i, i + batchSize);
+
+			// 批量检测当前批次的密钥
+			const batchPromises = batch.map(async (keyObj) => {
+				try {
+					const result = await checkKeyValidity(keyObj.key);
+
+					// 更新数据库中的余额和最后检查时间
+					await env.db.prepare(`UPDATE keys SET balance = ?, last_updated = ? WHERE key = ?`).bind(result.balance, now, keyObj.key).run();
+
+					const keyResult = {
+						key: keyObj.key,
+						success: result.isValid,
+						balance: result.balance,
+						message: result.message,
+					};
+
+					if (result.isValid) {
+						updatedCount++;
+					} else {
+						failedCount++;
+					}
+
+					return keyResult;
+				} catch (error) {
+					console.error(`处理密钥 ${keyObj.key} 时出错:`, error);
+
+					failedCount++;
+					return {
+						key: keyObj.key,
+						success: false,
+						message: `处理出错: ${error.message}`,
+					};
+				}
+			});
+
+			// 等待当前批次所有密钥处理完成
+			const batchResults = await Promise.all(batchPromises);
+			results.push(...batchResults);
+
+			// 在批次之间添加短暂延迟，避免API速率限制
+			if (i + batchSize < keys.length) {
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+			}
+		}
+
+		return {
+			success: true,
+			updated: updatedCount,
+			failed: failedCount,
+			results: results,
+		};
+	} catch (error) {
+		console.error('更新密钥余额时出错:', error);
+		return {
+			success: false,
+			message: `更新失败: ${error.message}`,
+		};
+	}
+}
 
 // 主界面的HTML内容
 const mainHtmlContent = `
@@ -1068,16 +1080,16 @@ const mainHtmlContent = `
       -webkit-overflow-scrolling: touch;
     }
     .container {
-      max-width: 1200px; 
+      max-width: 1200px;
       background-color: #fff;
       margin: 10px auto;
-      padding: 30px; 
-      border-radius: 16px; 
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
       flex: 1;
-      display: flex;           
-      flex-direction: column; 
-      overflow-y: auto;       
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
       height: calc(100vh - 40px);
       -webkit-overflow-scrolling: touch;
     }
@@ -1089,7 +1101,7 @@ const mainHtmlContent = `
     }
     .header {
       text-align: center;
-      margin-bottom: 40px; 
+      margin-bottom: 40px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1116,8 +1128,8 @@ const mainHtmlContent = `
 
 
     .keys-container {
-      flex: 1;        
-      overflow-y: auto;  
+      flex: 1;
+      overflow-y: auto;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 20px;
@@ -1172,7 +1184,7 @@ const mainHtmlContent = `
       top: 50%;
       left: 40%;
       transform: translate(-50%, -50%) scale(0.85);
-      background: rgba(52, 152, 219, 0.29); 
+      background: rgba(52, 152, 219, 0.29);
       color: white;
       padding: 8px 20px;
       border-radius: 30px;
@@ -1278,22 +1290,22 @@ const mainHtmlContent = `
       right: 8px;
       font-size: 0.7rem;
       color: #95a5a6;
-      opacity: 0; 
-      transition: opacity 0.3s ease; 
+      opacity: 0;
+      transition: opacity 0.3s ease;
       pointer-events: none;
       text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-      background: rgba(255, 255, 255, 0.8); 
+      background: rgba(255, 255, 255, 0.8);
       padding: 2px 6px;
       border-radius: 4px;
-      backdrop-filter: blur(4px); 
-      -webkit-backdrop-filter: blur(4px); 
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       z-index: 2;
     }
 
     .key-item:hover .key-update-time {
       opacity: 1;
     }
-    
+
     .pagination {
       display: flex;
       justify-content: center;
@@ -1385,9 +1397,9 @@ const mainHtmlContent = `
       margin-bottom: 8px;
     }
     .count-value {
-      font-size: 1.5rem;  
-      font-weight: 600;   
-      color: #e74c3c;   
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #e74c3c;
     }
 
     .admin-link {
@@ -1403,7 +1415,7 @@ const mainHtmlContent = `
             flex-direction: column;
             gap: 10px;
         }
-        
+
         .export-link, .admin-link a {
             width: 80%;
             margin: 0;
@@ -1563,11 +1575,11 @@ const mainHtmlContent = `
         grid-template-columns: 1fr;
         padding: 10px;
       }
-      
+
       .key-item {
         padding: 12px;
       }
-      
+
       .key-text {
         font-size: 0.85rem;
         max-width: 65%;
@@ -1603,8 +1615,8 @@ const mainHtmlContent = `
       }
 
       .container {
-        margin: 10px;        
-        padding: 15px;  
+        margin: 10px;
+        padding: 15px;
         height: calc(100vh - 20px);
       }
     }
@@ -1615,13 +1627,13 @@ const mainHtmlContent = `
         padding: 10px;
         min-height: 350px;
       }
-      
+
       .key-item {
         padding: 12px;
         min-height: 60px;
         height: 60px;
       }
-      
+
       .key-text {
         font-size: 0.85rem;
         max-width: 65%;
@@ -1632,7 +1644,7 @@ const mainHtmlContent = `
         -webkit-overflow-scrolling: touch;
         touch-action: manipulation;
       }
-      
+
       .counts{
         display: inline;
       }
@@ -1675,11 +1687,11 @@ const mainHtmlContent = `
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(120deg, 
-        rgba(255, 255, 255, 0) 0%, 
-        rgba(255, 255, 255, 0.1) 10%, 
-        rgba(255, 255, 255, 0.25) 20%, 
-        rgba(255, 255, 255, 0.1) 30%, 
+      background: linear-gradient(120deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.1) 10%,
+        rgba(255, 255, 255, 0.25) 20%,
+        rgba(255, 255, 255, 0.1) 30%,
         rgba(255, 255, 255, 0) 40%);
       transform: translateX(-100%);
       transition: transform 1s cubic-bezier(0.19, 1, 0.22, 1);
@@ -2018,38 +2030,38 @@ const mainHtmlContent = `
         width: 95%;
         max-height: 90vh;
       }
-      
+
       .api-modal-header {
         padding: 16px 20px;
       }
-      
+
       .api-modal-body {
         padding: 20px;
         max-height: calc(90vh - 60px);
       }
-      
+
       .api-tutorial h3 {
         font-size: 1.2rem;
       }
-      
+
       .api-tutorial p {
         font-size: 0.95rem;
       }
-      
+
       .api-code {
         font-size: 0.75rem;
         padding: 15px;
       }
-      
+
       .code-header {
         padding: 10px 15px;
       }
-      
+
       .copy-btn {
         padding: 4px 8px;
         font-size: 0.8rem;
       }
-      
+
       .float-api-btn {
         right: 20px;
         bottom: 20px;
@@ -2136,18 +2148,18 @@ const mainHtmlContent = `
         padding: 15px;
         gap: 16px;
       }
-      
+
       .key-item {
         padding: 16px;
         min-height: 65px;
       }
-      
+
       .key-balance {
         padding: 6px 12px;
         min-width: 70px;
       }
     }
-    
+
     /* 进度条样式增强 */
     .progress-stats {
       display: flex;
@@ -2155,7 +2167,7 @@ const mainHtmlContent = `
       font-size: 0.85rem;
       color: #718096;
     }
-    
+
     .progress-details {
       margin-top: 10px;
       font-size: 0.8rem;
@@ -2163,11 +2175,11 @@ const mainHtmlContent = `
       display: flex;
       justify-content: space-between;
     }
-    
+
     .progress-speed {
       color: #3498db;
     }
-    
+
     .progress-eta {
       color: #e67e22;
     }
@@ -2322,7 +2334,7 @@ const mainHtmlContent = `
       letter-spacing: 0.5px;
       opacity: 0.75;
       transition: opacity 0.3s ease;
-      white-space: nowrap; 
+      white-space: nowrap;
       text-align: center;
     }
 
@@ -2355,21 +2367,21 @@ const mainHtmlContent = `
       right: 15px;
       top: 15px;
     }
-    
+
     .github-link:hover {
       background: #333;
       color: white;
       border-color: #333;
     }
-    
+
     .github-link svg {
       transition: transform 0.2s;
     }
-    
+
     .github-link:hover svg {
       transform: rotate(360deg);
     }
-    
+
     @media (max-width: 768px) {
       .github-link {
         position: static;
@@ -2393,7 +2405,7 @@ const mainHtmlContent = `
           GitHub
         </a>
       </div>
-      
+
       <div id="keys-container" class="keys-container">
         <div class="loading">
           <div>
@@ -2402,7 +2414,7 @@ const mainHtmlContent = `
           </div>
         </div>
       </div>
-      
+
       <div class="pagination">
         <button id="prev-page" disabled>&laquo; 上一页</button>
         <div class="pagination-info">
@@ -2410,7 +2422,7 @@ const mainHtmlContent = `
         </div>
         <button id="next-page" disabled>下一页 &raquo;</button>
       </div>
-      
+
       <div class="counts">
         <div class="count-item">
           <div class="count-label">总API Keys</div>
@@ -2425,13 +2437,13 @@ const mainHtmlContent = `
           <div id="total-balance" class="count-value">0</div>
         </div>
       </div>
-      
+
       <div class="admin-link">
         <a href="/admin">管理员入口</a>
         <button id="export-valid-keys" class="export-link">导出有效密钥</button>
       </div>
   </div>
-  
+
   <div id="toast" class="toast"></div>
 
   <div id="auth-modal" class="api-modal">
@@ -2454,7 +2466,7 @@ const mainHtmlContent = `
       </div>
     </div>
   </div>
-  
+
   <!-- 悬浮API按钮 -->
   <button id="floatApiBtn" class="float-api-btn">
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2463,7 +2475,7 @@ const mainHtmlContent = `
     </svg>
     API 调用文档
   </button>
-  
+
   <!-- API教程弹窗 -->
   <div id="apiModal" class="api-modal">
     <div class="api-modal-content">
@@ -2474,25 +2486,25 @@ const mainHtmlContent = `
       <div class="api-modal-body">
         <div class="api-tutorial">
           <p>硅基流动API负载均衡服务让您可以通过统一的入口访问基于 API Key 的服务，自动为您选择可用的 API Key，实现负载均衡与高可用。</p>
-          
+
           <h3>基本使用</h3>
           <p>调用方式与原始API完全相同，只需将请求地址修改为我们的代理地址，并在请求头中使用您的专属API Key。</p>
-          
+
           <div>
             <div class="code-header">
               <span>示例请求</span>
               <button class="copy-btn" data-copy=
 "
-curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
+curl -X POST 'https://sili-api.puppetdevz.me/v1/chat/completions' \\
 -H 'Content-Type: application/json' \\
 -H 'Authorization: Bearer your-api-key-here' \\
 -d '{'model': 'Qwen/Qwen2.5-7B-Instruct', 'messages': [{'role': 'user', 'content': '你好'}], 'stream': true}'
 ">复制</button>
             </div>
-            
+
             <div class="api-code">
     <span class="comment"># 向负载均衡服务发送请求</span>
-    curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
+    curl -X POST 'https://sili-api.puppetdevz.me/v1/chat/completions' \\
       -H 'Content-Type: application/json' \\
       -H 'Authorization: Bearer <span class="keyword">your-api-key-here</span>' \\
       -d '{
@@ -2502,10 +2514,10 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
       }'
             </div>
           </div>
-          
+
           <h3>支持的端点</h3>
           <p>我们支持硅基流动的所有API端点，您只需将原始API地址替换为我们的代理地址即可：</p>
-          
+
           <div>
             <div class="code-header">
               <span>端点替换示例</span>
@@ -2513,24 +2525,24 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
   https://api.siliconflow.cn/v1/...
 
   # 替换为
-  https://sili-api.killerbest.xyz/v1/...">复制</button>
+  https://sili-api.puppetdevz.me/v1/...">复制</button>
             </div>
             <div class="api-code">
     <span class="comment"># 原始API地址</span>
     https://api.siliconflow.cn/v1/...
 
     <span class="comment"># 替换为</span>
-    https://sili-api.killerbest.xyz/v1/...
+    https://sili-api.puppetdevz.me/v1/...
             </div>
           </div>
-          
+
           <h3>获取访问授权</h3>
           <p>要使用该服务，您需要申请专属的API Key。请联系管理员获取访问权限：</p>
-          
+
           <div class="contact-info">
-            管理员邮箱：<a href="mailto:admin@killerbest.com">admin@killerbest.com</a>
+            管理员邮箱：<a href="mailto:admin@puppetdevz.me">admin@puppetdevz.me</a>
           </div>
-          
+
           <h3>主要优势</h3>
           <ul>
             <li>自动负载均衡 - 系统自动选择有效的API Key</li>
@@ -2552,7 +2564,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
     let pageSize = 12;
     let authToken = localStorage.getItem('guestToken') || '';
     let accessControlMode = 'open';
-    
+
     // DOM元素
     const keysContainer = document.getElementById('keys-container');
     const prevPageBtn = document.getElementById('prev-page');
@@ -2562,29 +2574,29 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
     const validCountEl = document.getElementById('valid-count');
     const totalBalanceEl = document.getElementById('total-balance');
     const toast = document.getElementById('toast');
-    
+
     // API按钮和弹窗
     const floatApiBtn = document.getElementById('floatApiBtn');
     const apiModal = document.getElementById('apiModal');
     const apiModalClose = document.getElementById('apiModalClose');
-    
+
     // 显示API弹窗
     floatApiBtn.addEventListener('click', () => {
         apiModal.classList.add('show');
         document.body.style.overflow = 'hidden'; // 防止背景滚动
-        
+
         // 添加媒体查询适配动画
         if (window.innerWidth <= 768) {
           document.querySelector('.api-modal-content').style.transform = 'translateY(0)';
         }
     });
-    
+
     // 关闭API弹窗
     apiModalClose.addEventListener('click', () => {
       apiModal.classList.remove('show');
       document.body.style.overflow = ''; // 恢复滚动
     });
-    
+
     // 点击弹窗外部关闭
     apiModal.addEventListener('click', (e) => {
       if (e.target === apiModal) {
@@ -2592,26 +2604,26 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         document.body.style.overflow = '';
       }
     });
-    
+
     // 代码复制功能
     document.querySelectorAll('.copy-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         const codeText = this.getAttribute('data-copy');
-        
+
         // 使用异步剪贴板API
         navigator.clipboard.writeText(codeText)
           .then(() => {
             // 成功复制后的视觉反馈
             this.classList.add('copied');
             this.innerText = '已复制';
-            
+
             // 恢复原始状态
             setTimeout(() => {
               this.classList.remove('copied');
               this.innerHTML = '复制代码';
               this.insertAdjacentHTML('afterbegin', '<span></span>');
             }, 2000);
-            
+
             // 显示全局通知
             showToast('代码已复制到剪贴板');
           })
@@ -2621,7 +2633,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           });
       });
     });
-    
+
     // 从服务器加载密钥
     async function loadKeys(retryCount = 3, retryDelay = 1500) {
       try {
@@ -2642,9 +2654,9 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         if (authToken) {
           headers['Authorization'] = \`Bearer \${authToken}\`;
         }
-        
+
         const response = await fetch('/admin/api/keys', { headers });
-        
+
         // 处理未认证的情况
         if (response.status === 401) {
           const result = await response.json();
@@ -2652,7 +2664,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
             // 清除失效的token
             localStorage.removeItem('guestToken');
             authToken = '';
-            
+
             // 根据访问控制模式显示不同内容
             if (result.accessControl === 'private') {
               keysContainer.innerHTML = '<div class="empty-state">此页面仅限管理员访问<br><a href="/admin" style="color: #3498db;">前往管理员登录</a></div>';
@@ -2662,11 +2674,11 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
             return;
           }
         }
-        
+
         if (!response.ok) {
           throw new Error(\`服务器响应错误: \${response.status}\`);
         }
-        
+
         const result = await response.json();
         if (result.success) {
           allKeys = result.data;
@@ -2678,7 +2690,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         }
       } catch (error) {
         console.error('加载密钥时出错:', error);
-        
+
         if (retryCount > 0) {
           // 显示重试消息
           keysContainer.innerHTML = \`
@@ -2688,7 +2700,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
               <div class="loader" style="display: inline-block; margin-top: 10px; border-top-color: #3498db;"></div>
             </div>
           \`;
-          
+
           // 延迟后重试
           setTimeout(() => loadKeys(retryCount - 1, retryDelay * 1.5), retryDelay);
         } else {
@@ -2701,7 +2713,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
               </button>
             </div>
           \`;
-          
+
           // 为刷新按钮添加事件监听器
           setTimeout(() => {
             const retryButton = document.getElementById('retry-button');
@@ -2716,7 +2728,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
                     </div>
                   </div>
                 \`;
-                
+
                 // 短暂延迟后重新加载
                 setTimeout(() => loadKeys(3, 1500), 300);
               });
@@ -2725,7 +2737,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         }
       }
     }
-    
+
     // 获取页面大小配置
     async function getPageSize(retryCount = 2) {
       try {
@@ -2733,7 +2745,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         if (!response.ok) {
           throw new Error(\`服务器响应错误: \${response.status}\`);
         }
-        
+
         const result = await response.json();
         if (result.success) {
           return parseInt(result.data) || 12; // 确保有默认值
@@ -2742,22 +2754,22 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         }
       } catch (error) {
         console.warn('加载页面大小配置时出错:', error);
-        
+
         // 尝试重试
         if (retryCount > 0) {
           console.log(\`尝试重新获取页面大小... 剩余尝试次数: \${retryCount}\`);
           await new Promise(resolve => setTimeout(resolve, 1000)); // 延迟1秒
           return getPageSize(retryCount - 1);
         }
-        
+
         // 返回默认值
         return 12;
       }
     }
-    
+
     // 渲染当前页面的密钥
     function renderKeys() {
-      // 格式化日期 
+      // 格式化日期
       function formatDate(dateString) {
         try {
           const date = new Date(dateString);
@@ -2766,7 +2778,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
             return '时间未知';
           }
           // 指定使用24小时制格式
-          return date.toLocaleString('zh-CN', { 
+          return date.toLocaleString('zh-CN', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -2788,7 +2800,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           pageInfo.textContent = '第 0 页';
           return;
       }
-      
+
       // 按余额从高到低排序
       const sortedKeys = [...allKeys].sort((a, b) => {
         // 转换为数字进行比较，确保是数值比较
@@ -2796,35 +2808,35 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         const balanceB = parseFloat(b.balance) || 0;
         return balanceB - balanceA; // 从高到低排序
       });
-      
+
       // 计算分页
       const totalPages = Math.ceil(sortedKeys.length / pageSize);
       if (currentPage > totalPages) {
           currentPage = totalPages;
       }
-      
+
       const startIndex = (currentPage - 1) * pageSize;
       const endIndex = Math.min(startIndex + pageSize, sortedKeys.length);
       const currentKeys = sortedKeys.slice(startIndex, endIndex);
-      
+
       // 更新分页控件
       prevPageBtn.disabled = currentPage === 1;
       nextPageBtn.disabled = currentPage === totalPages;
       pageInfo.textContent = \`第 \${currentPage} / \${totalPages} 页\`;
-      
+
       // 渲染密钥
       let html = '';
       for (const keyObj of currentKeys) {
           // 省略显示密钥：保留前10位和后5位，中间用...替代
-          const displayKey = keyObj.key.length > 20 
+          const displayKey = keyObj.key.length > 20
           ? \`\${keyObj.key.substring(0, 10)}...\${keyObj.key.substring(keyObj.key.length - 5)}\`
           : keyObj.key;
-          
+
           // 根据余额确定类名和显示文本
           let balanceClass = '';
           let balanceText = '';
           const balance = parseFloat(keyObj.balance) || 0;
-          
+
           if (balance <= 0) {
               balanceClass = 'zero';
               balanceText = '无效';
@@ -2841,7 +2853,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
               balanceClass = 'high';
               balanceText = balance;
           }
-          
+
           html += \`
             <div class="key-item" onclick="copyKey('\${keyObj.key}')" title="\${keyObj.key}">
                 <div class="key-text">\${displayKey}</div>
@@ -2853,10 +2865,10 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           \`;
 
       }
-      
+
       keysContainer.innerHTML = html;
     }
-    
+
     // 更新计数显示
     function updateCountsWithAnimation() {
       // 获取实际数据
@@ -2865,13 +2877,13 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
       const totalBalance = allKeys.reduce((sum, key) => {
         return sum + (parseFloat(key.balance) || 0);
       }, 0).toFixed(2);
-      
+
       // 为三个数字添加动画
       animateCounter(totalCountEl, total);
       animateCounter(validCountEl, valid);
       animateCounter(document.getElementById('total-balance'), totalBalance, '￥', true);
     }
-    
+
     // 页面加载时初始化数字显示样式
     document.addEventListener('DOMContentLoaded', () => {
       // 确保初始状态为红色小字体
@@ -2884,14 +2896,14 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
 
       // 初始加载时首先检查访问控制状态，而不是直接加载密钥
       checkAccessControl();
-      
+
       // 访客验证按钮事件
       document.getElementById('verify-guest-btn').addEventListener('click', verifyGuestPassword);
-      
+
       // 关闭认证弹窗按钮
       document.getElementById('authModalClose').addEventListener('click', () => {
         document.getElementById('auth-modal').classList.remove('show');
-        
+
         // 如果是受限模式且没有token，确保显示认证按钮
         if (accessControlMode === 'restricted' && !authToken) {
           keysContainer.innerHTML = \`
@@ -2902,7 +2914,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
               </button>
             </div>
           \`;
-          
+
           // 添加认证按钮点击事件
           setTimeout(() => {
             const authButton = document.getElementById('show-auth-button');
@@ -2912,7 +2924,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           }, 0);
         }
       });
-      
+
       // 密码输入框回车事件
       document.getElementById('guest-password').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -2934,34 +2946,34 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
       const target = parseFloat(targetValue) || 0;
       const isInteger = !isBalance && Number.isInteger(target);
       let current = 0;
-      
+
       // 动画持续时间和帧率
       const duration = 5000; // 5秒动画
       const framesPerSecond = 60;
       const frames = duration / 1000 * framesPerSecond;
-      
+
       // 使用easeOutExpo缓动函数以获得非线性的动画效果
       const easeOutExpo = t => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-      
+
       // 停止现有的动画
       if (element._animationFrame) {
         cancelAnimationFrame(element._animationFrame);
       }
-      
+
       const startTime = performance.now();
-      
+
       // 动画函数
       const animate = (timestamp) => {
         // 计算已经过去的时间比例
         const elapsed = timestamp - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
+
         // 使用缓动函数
         const easedProgress = easeOutExpo(progress);
-        
+
         // 计算当前值
         current = easedProgress * target;
-        
+
         // 格式化
         let displayValue = prefix;
         if (isInteger) {
@@ -2971,10 +2983,10 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         } else {
           displayValue += Math.round(current * 100) / 100;
         }
-        
+
         // 根据数值大小设置样式
         const numValue = parseFloat(current);
-        
+
         // 计算字体大小: 1-9: 1.5rem, 10-99: 1.8rem, 100-999: 2.2rem, 1000+: 2.8rem
         let fontSize = '1.5rem';
         if (numValue >= 1000) {
@@ -2984,10 +2996,10 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         } else if (numValue >= 10) {
           fontSize = '1.8rem';
         }
-        
+
         // 计算颜色: 个位数红色, 十位数黑色, 百位数绿色, 千位数及以上彩色
         let color = '#e74c3c'; // 红色(个位数)
-        
+
         if (numValue >= 1000) {
           // 千位数及以上: 渐变彩色
           const hue = (numValue % 360) || 50;
@@ -3029,21 +3041,21 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           element.style.color = '#e74c3c';
           element.style.textShadow = 'none';
         }
-        
+
         // 应用样式
         element.style.fontSize = fontSize;
         element.style.fontWeight = numValue >= 100 ? '700' : '600';
         element.style.transition = 'all 0.2s ease';
-        
+
         // 更新显示的值
         element.textContent = displayValue;
-        
+
         // 判断是否继续动画
         if (progress < 1) {
           element._animationFrame = requestAnimationFrame(animate);
         }
       };
-      
+
       // 启动动画
       element._animationFrame = requestAnimationFrame(animate);
     }
@@ -3053,44 +3065,44 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         try {
             // 过滤出有效密钥（余额大于0且没有错误）
             const validKeys = allKeys.filter(k => parseFloat(k.balance) > 0 && !k.lastError).map(k => k.key);
-            
+
             if (validKeys.length === 0) {
             showToast('没有找到有效密钥', true);
             return;
             }
-            
+
             // 用逗号拼接所有有效密钥
             const keysText = validKeys.join(',');
-            
+
             // 创建Blob对象
             const blob = new Blob([keysText], { type: 'text/plain' });
-            
+
             // 创建下载链接
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            
+
             // 设置文件名（使用当前日期时间）
             const date = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
             a.download = \`siliconflow-valid-keys-\${date}.txt\`;
-            
+
             // 模拟点击下载
             document.body.appendChild(a);
             a.click();
-            
+
             // 清理
             setTimeout(() => {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             }, 100);
-            
+
             showToast(\`成功导出 \${validKeys.length} 个有效密钥\`);
         } catch (error) {
             console.error('导出密钥时出错:', error);
             showToast('导出失败: ' + error.message, true);
         }
     }
-    
+
     // 将密钥复制到剪贴板
     function copyKey(key) {
       navigator.clipboard.writeText(key)
@@ -3098,20 +3110,20 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           // 找到被点击的元素
           const elements = document.querySelectorAll('.key-item');
           let targetElement;
-          
+
           elements.forEach(el => {
             if (el.getAttribute('title') === key) {
               targetElement = el;
             }
           });
-          
+
           if (targetElement) {
             // 添加复制成功动画类
             targetElement.classList.add('copy-success');
-            
+
             // 显示通知
             showToast('已复制到剪贴板');
-            
+
             // 一段时间后移除动画类
             setTimeout(() => {
               targetElement.classList.remove('copy-success');
@@ -3125,31 +3137,31 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           showToast('复制失败', true);
         });
     }
-    
+
     // 显示通知消息
     function showToast(message, isError = false) {
       toast.textContent = message;
       toast.style.background = isError ? 'rgba(231, 76, 60, 0.95)' : 'rgba(46, 204, 113, 0.95)';
-      
+
       // 添加/移除错误类以显示正确的图标
       if (isError) {
         toast.classList.add('error');
       } else {
         toast.classList.remove('error');
       }
-      
+
       toast.classList.add('show');
-      
+
       setTimeout(() => {
         toast.classList.remove('show');
       }, 2500);
     }
-    
+
     // 显示错误消息
     function showError(message) {
       keysContainer.innerHTML = \`<div class="empty-state">\${message}</div>\`;
     }
-    
+
     // 处理分页
     prevPageBtn.addEventListener('click', () => {
       if (currentPage > 1) {
@@ -3157,7 +3169,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
         renderKeys();
       }
     });
-    
+
     nextPageBtn.addEventListener('click', () => {
       const totalPages = Math.ceil(allKeys.length / pageSize);
       if (currentPage < totalPages) {
@@ -3184,7 +3196,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
           const data = await response.json();
           if (data.success) {
             accessControlMode = data.data.accessControl;
-            
+
             // 根据访问控制模式执行不同操作
             if (accessControlMode === 'open') {
               // 完全开放，直接加载
@@ -3209,7 +3221,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
                     </button>
                   </div>
                 \`;
-                
+
                 // 添加认证按钮的点击事件监听器
                 setTimeout(() => {
                   const authButton = document.getElementById('show-auth-button');
@@ -3233,7 +3245,7 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
     function showAuthModal() {
       const authModal = document.getElementById('auth-modal');
       authModal.classList.add('show');
-      
+
       // 聚焦到密码输入框
       setTimeout(() => {
         document.getElementById('guest-password').focus();
@@ -3245,22 +3257,22 @@ curl -X POST 'https://sili-api.killerbest.xyz/v1/chat/completions' \\
       const passwordInput = document.getElementById('guest-password');
       const password = passwordInput.value.trim();
       const errorMsg = document.getElementById('auth-error');
-      
+
       if (!password) {
         errorMsg.textContent = '请输入密码';
         errorMsg.style.display = 'block';
         return;
       }
-      
+
       try {
         const response = await fetch('/admin/api/verify-guest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
           // 认证成功，保存token并加载密钥
           authToken = data.token;
@@ -3471,7 +3483,7 @@ const adminHtmlContent = `
         flex-direction: column;
         gap: 20px;
       }
-      
+
       .selection-controls {
         margin-top: 10px;
       }
@@ -3874,12 +3886,12 @@ const adminHtmlContent = `
         visibility: hidden;
         transition: opacity 0.3s, visibility 0.3s;
     }
-    
+
     .modal-backdrop.show {
         opacity: 1;
         visibility: visible;
     }
-    
+
     .modal-content {
         background: white;
         border-radius: 8px;
@@ -3890,11 +3902,11 @@ const adminHtmlContent = `
         transform: translateY(-20px);
         transition: transform 0.3s;
     }
-    
+
     .modal-backdrop.show .modal-content {
         transform: translateY(0);
     }
-    
+
     .modal-header {
         padding: 15px 20px;
         border-bottom: 1px solid #e9ecef;
@@ -3902,13 +3914,13 @@ const adminHtmlContent = `
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .modal-title {
         margin: 0;
         font-size: 1.2rem;
         color: #2c3e50;
     }
-    
+
     .modal-close {
         background: none;
         border: none;
@@ -3917,11 +3929,11 @@ const adminHtmlContent = `
         color: #95a5a6;
         padding: 0;
     }
-    
+
     .modal-body {
         padding: 20px;
     }
-    
+
     .modal-footer {
         padding: 15px 20px;
         border-top: 1px solid #e9ecef;
@@ -3929,7 +3941,7 @@ const adminHtmlContent = `
         justify-content: flex-end;
         gap: 10px;
     }
-    
+
     .modal-input {
         width: 100%;
         padding: 10px 12px;
@@ -3938,7 +3950,7 @@ const adminHtmlContent = `
         font-size: 16px;
         margin-bottom: 15px;
     }
-    
+
     .modal-input:focus {
         border-color: #3498db;
         box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
@@ -4104,7 +4116,7 @@ const adminHtmlContent = `
     }
 
     .admin-normal-status {
-      color: #2ecc71; 
+      color: #2ecc71;
       text-shadow: 0 0 5px rgba(46, 204, 113, 0.7);
     }
 
@@ -4120,17 +4132,17 @@ const adminHtmlContent = `
       opacity: 0.7;
       transition: all 0.2s ease;
     }
-    
+
     .key-checkbox:hover,
     .key-checkbox:checked {
       opacity: 1;
     }
-    
+
     .key-item.selected {
       border: 2px solid #3498db;
       background-color: rgba(52, 152, 219, 0.05);
     }
-    
+
     /* 批量操作面板 */
     .batch-actions {
       background: #fff;
@@ -4214,7 +4226,7 @@ const adminHtmlContent = `
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 15px;
     }
-    
+
     .batch-config-item {
       display: flex;
       flex-direction: column;
@@ -4244,12 +4256,12 @@ const adminHtmlContent = `
       outline: none;
     }
 
-    
+
     .batch-config-button {
       margin-top: auto;
       align-self: flex-end;
     }
-    
+
     /* 选择计数和全选控件 */
 
     .select-wrapper {
@@ -4303,12 +4315,12 @@ const adminHtmlContent = `
       .config-grid {
         grid-template-columns: 1fr;
       }
-      
+
       .batch-actions {
         flex-direction: column;
         align-items: stretch;
       }
-      
+
       .batch-actions-controls {
         justify-content: flex-start;
         flex-wrap: wrap;
@@ -4320,7 +4332,7 @@ const adminHtmlContent = `
       position: relative;
       display: inline-block;
     }
-    
+
     .dropdown-content {
       display: none;
       position: absolute;
@@ -4336,13 +4348,13 @@ const adminHtmlContent = `
       transform: scale(0.95);
       opacity: 0;
     }
-    
+
     .dropdown-content.show {
       display: block;
       transform: scale(1);
       opacity: 1;
     }
-    
+
     .dropdown-content a {
       color: #2c3e50;
       padding: 12px 16px;
@@ -4351,12 +4363,12 @@ const adminHtmlContent = `
       transition: background-color 0.2s;
       font-size: 0.9rem;
     }
-    
+
     .dropdown-content a:hover {
       background-color: #f1f1f1;
       color: #3498db;
     }
-    
+
     .dropdown-content a:not(:last-child) {
       border-bottom: 1px solid #f1f1f1;
     }
@@ -4435,11 +4447,11 @@ const adminHtmlContent = `
       user-select: none;
       position: relative;
     }
-    
+
     .sort-header:hover {
       background: #f1f5f9;
     }
-    
+
     .sort-icon {
       position: relative;
       display: inline-block;
@@ -4448,16 +4460,16 @@ const adminHtmlContent = `
       transition: all 0.2s ease;
       vertical-align: middle;
     }
-    
+
     .sort-icon.active {
       opacity: 1;
       color: #3498db;
     }
-    
+
     .sort-icon.asc .sort-arrow {
       transform: rotate(180deg);
     }
-    
+
     .row-number {
       font-weight: 600;
       text-align: center;
@@ -4465,7 +4477,7 @@ const adminHtmlContent = `
       font-family: monospace;
       font-size: 0.9rem;
     }
-    
+
     /* 高亮选中行 */
     #all-keys-table tbody tr.selected-row {
       background: rgba(52, 152, 219, 0.1);
@@ -4494,13 +4506,13 @@ const adminHtmlContent = `
       border-radius: 10px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
-    
+
     .charts-period-selector {
       display: flex;
       align-items: center;
       gap: 10px;
     }
-    
+
     .charts-period-selector select {
       padding: 8px 12px;
       border: 1px solid #ddd;
@@ -4509,14 +4521,14 @@ const adminHtmlContent = `
       font-size: 0.9rem;
       cursor: pointer;
     }
-    
+
     .charts-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 20px;
       margin-bottom: 25px;
     }
-    
+
     .chart-container {
       background: white;
       border-radius: 12px;
@@ -4527,12 +4539,12 @@ const adminHtmlContent = `
       height: 340px;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    
+
     .chart-container:hover {
       transform: translateY(-3px);
       box-shadow: 0 8px 20px rgba(0,0,0,0.08);
     }
-    
+
     .chart-container h3 {
       margin-top: 0;
       margin-bottom: 15px;
@@ -4540,7 +4552,7 @@ const adminHtmlContent = `
       color: #2c3e50;
       text-align: center;
     }
-    
+
     .chart-full-container {
       background: white;
       border-radius: 12px;
@@ -4551,21 +4563,21 @@ const adminHtmlContent = `
       height: 350px;
       position: relative;
     }
-    
+
     .chart-full-container h3 {
       margin-top: 0;
       margin-bottom: 15px;
       font-size: 1.1rem;
       color: #2c3e50;
     }
-    
+
     .chart-options {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 15px;
     }
-    
+
     .chart-option-btn {
       padding: 6px 12px;
       background: #f1f8ff;
@@ -4576,32 +4588,32 @@ const adminHtmlContent = `
       cursor: pointer;
       transition: all 0.2s;
     }
-    
+
     .chart-option-btn:hover {
       background: #e1f0ff;
     }
-    
+
     .chart-range-selector {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 0.9rem;
     }
-    
+
     .chart-range-selector select {
       padding: 6px 10px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 0.85rem;
     }
-    
+
     .balance-stats-container {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 20px;
       margin-bottom: 30px;
     }
-    
+
     .balance-stat-card {
       background: white;
       border-radius: 12px;
@@ -4612,12 +4624,12 @@ const adminHtmlContent = `
       align-items: center;
       transition: all 0.3s ease;
     }
-    
+
     .balance-stat-card:hover {
       transform: translateY(-3px);
       box-shadow: 0 8px 20px rgba(0,0,0,0.08);
     }
-    
+
     .balance-stat-icon {
       width: 48px;
       height: 48px;
@@ -4628,31 +4640,31 @@ const adminHtmlContent = `
       margin-right: 16px;
       flex-shrink: 0;
     }
-    
+
     .balance-stat-icon.max {
       background: linear-gradient(45deg, #4ade80, #22c55e);
       color: white;
     }
-    
+
     .balance-stat-icon.min {
       background: linear-gradient(45deg, #fb7185, #e11d48);
       color: white;
     }
-    
+
     .balance-stat-icon.median {
       background: linear-gradient(45deg, #818cf8, #4f46e5);
       color: white;
     }
-    
+
     .balance-stat-icon.total {
       background: linear-gradient(45deg, #facc15, #eab308);
       color: white;
     }
-    
+
     .balance-stat-content {
       flex: 1;
     }
-    
+
     .balance-stat-value {
       font-size: 1.6rem;
       font-weight: 700;
@@ -4660,38 +4672,38 @@ const adminHtmlContent = `
       margin-bottom: 4px;
       line-height: 1;
     }
-    
+
     .balance-stat-label {
       font-size: 0.9rem;
       color: #64748b;
     }
-    
+
     /* 响应式调整 */
     @media (max-width: 992px) {
       .charts-grid,
       .balance-stats-container {
         grid-template-columns: 1fr;
       }
-      
+
       .chart-container,
       .chart-full-container {
         height: 300px;
         width: 100%;
       }
     }
-    
+
     @media (max-width: 768px) {
       .charts-control {
         flex-direction: column;
         gap: 12px;
         align-items: flex-start;
       }
-      
+
       .charts-period-selector {
         width: 100%;
         justify-content: flex-end;
       }
-      
+
       .chart-options {
         flex-direction: column;
         align-items: flex-start;
@@ -4795,17 +4807,17 @@ const adminHtmlContent = `
       margin-right: 10px;
       transition: all 0.2s;
     }
-    
+
     .github-link:hover {
       background: #333;
       color: white;
       border-color: #333;
     }
-    
+
     .github-link svg {
       transition: transform 0.2s;
     }
-    
+
     .github-link:hover svg {
       transform: rotate(360deg);
     }
@@ -4856,11 +4868,11 @@ const adminHtmlContent = `
         flex-direction: column;
         gap: 8px;
       }
-      
+
       .batch-config-item.interval-range input {
         width: 100%;
       }
-      
+
       .interval-separator {
         display: none;
       }
@@ -5008,7 +5020,7 @@ const adminHtmlContent = `
         align-items: flex-start;
         gap: 15px;
       }
-      
+
       .client-switch-container {
         align-self: flex-end;
       }
@@ -5039,7 +5051,7 @@ const adminHtmlContent = `
       transform: translateY(0);
       box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
     }
-      
+
   </style>
   <!-- 添加Chart.js库 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -5060,14 +5072,14 @@ const adminHtmlContent = `
         <a href="/" class="home-link">返回主页</a>
       </div>
     </div>
-    
+
     <div class="tab-container">
       <div class="tabs">
         <div class="tab active" data-tab="dashboard">仪表盘</div>
         <div class="tab" data-tab="keys">管理API Keys</div>
         <div class="tab" data-tab="settings">系统设置</div>
       </div>
-      
+
       <!-- Dashboard Tab -->
       <div class="tab-content active" id="dashboard">
         <div class="stats-grid">
@@ -5088,7 +5100,7 @@ const adminHtmlContent = `
             <div id="avg-balance-stat" class="stat-value">-</div>
           </div>
         </div>
-        
+
         <h2>最近添加的API Keys</h2>
         <div class="table-container">
           <table id="recent-keys-table">
@@ -5121,7 +5133,7 @@ const adminHtmlContent = `
             </select>
           </div>
         </div>
-        
+
         <!-- 新增: 图表区域 -->
         <div class="charts-grid">
           <div class="chart-container">
@@ -5133,7 +5145,7 @@ const adminHtmlContent = `
             <canvas id="key-status-chart"></canvas>
           </div>
         </div>
-        
+
         <!-- 新增: 余额统计信息 -->
         <div class="balance-stats-container">
           <div class="balance-stat-card">
@@ -5184,7 +5196,7 @@ const adminHtmlContent = `
             </div>
           </div>
         </div>
-        
+
         <!-- 新增: 使用趋势图 -->
         <div class="chart-full-container">
           <h3>余额趋势</h3>
@@ -5204,7 +5216,7 @@ const adminHtmlContent = `
         </div>
 
       </div>
-      
+
       <!-- Keys Management Tab -->
       <div class="tab-content" id="keys">
         <div class="batch-actions">
@@ -5298,7 +5310,7 @@ const adminHtmlContent = `
               </div>
             </div>
           </div>
-                  
+
           <!-- 批量检测设置 -->
           <div id="batch-config-panel" class="batch-config-panel">
             <div class="config-section">
@@ -5309,7 +5321,7 @@ const adminHtmlContent = `
                   <input type="number" id="batch-size" value="10" min="1" max="50" step="1">
                   <small class="batch-config-desc">前端并发处理批次大小</small>
                 </div>
-                
+
                 <div class="batch-config-item">
                   <label for="interval-type">间隔类型</label>
                   <div class="select-wrapper">
@@ -5321,14 +5333,14 @@ const adminHtmlContent = `
                   </div>
                 </div>
               </div>
-              
+
               <!-- 间隔设置合并到一行 -->
               <div class="config-grid" style="margin-top: 10px;">
                 <div class="batch-config-item" id="fixed-interval-container">
                   <label for="fixed-interval">固定间隔 (秒)</label>
                   <input type="number" id="fixed-interval" value="1" min="0" step="0.1" max="100">
                 </div>
-                
+
                 <div class="batch-config-item interval-range" id="random-interval-container">
                   <label>随机间隔范围 (ms)</label>
                   <div class="range-inputs">
@@ -5339,7 +5351,7 @@ const adminHtmlContent = `
                 </div>
               </div>
             </div>
-            
+
             <div class="config-section">
               <div class="config-section-title">请求失败重试</div>
               <div class="config-grid">
@@ -5347,7 +5359,7 @@ const adminHtmlContent = `
                   <label for="retry-count">重试次数</label>
                   <input type="number" id="retry-count" value="1" min="0" max="5">
                 </div>
-                
+
                 <div class="batch-config-item">
                   <label for="retry-interval">重试间隔 (ms)</label>
                   <input type="number" id="retry-interval" value="2000" min="0" max="10000">
@@ -5356,7 +5368,7 @@ const adminHtmlContent = `
             </div>
           </div>
         </div>
-        
+
         <div class="key-management-container">
           <!-- 左侧：添加单个Key -->
           <div class="key-panel">
@@ -5369,7 +5381,7 @@ const adminHtmlContent = `
                 </button>
               </div>
             </div>
-            
+
             <!-- 选择控件 -->
             <div class="selection-controls">
               <span id="selection-count" class="selection-count">已选择 0 个 Key</span>
@@ -5379,7 +5391,7 @@ const adminHtmlContent = `
               </label>
             </div>
           </div>
-          
+
           <!-- 右侧：批量添加Keys -->
           <div class="key-panel">
             <div class="form-group">
@@ -5391,7 +5403,7 @@ const adminHtmlContent = `
             </div>
           </div>
         </div>
-        
+
         <h2>所有API Keys</h2>
         <div class="table-container">
           <table id="all-keys-table">
@@ -5415,7 +5427,7 @@ const adminHtmlContent = `
           </table>
         </div>
       </div>
-      
+
       <!-- Settings Tab -->
       <div class="tab-content" id="settings">
       <form id="settings-form" onsubmit="saveSettings(event)">
@@ -5495,7 +5507,7 @@ const adminHtmlContent = `
             </div>
           </div>
         </div>
-          
+
         <button type="submit" id="save-settings-btn">保存设置</button>
       </form>
       </div>
@@ -5552,7 +5564,7 @@ const adminHtmlContent = `
   </div>
 
   <div id="toast" class="toast"></div>
-  
+
   <script>
     // 标签功能
     const tabs = document.querySelectorAll('.tab');
@@ -5572,7 +5584,7 @@ const adminHtmlContent = `
     let currentSortField = 'added'; // 默认按添加时间排序
     let currentSortOrder = 'desc'; // 默认降序(最新添加的在前面)
 
-    
+
     // 打开弹窗
       function showModal(options = {}) {
       const modal = document.getElementById('custom-modal');
@@ -5582,24 +5594,24 @@ const adminHtmlContent = `
       const cancelBtn = document.getElementById('modal-cancel');
       const inputContainer = document.getElementById('modal-input-container');
       const input = document.getElementById('modal-input');
-      
+
       // 设置标题
       if (options.title) {
           document.querySelector('.modal-title').textContent = options.title;
       } else {
           document.querySelector('.modal-title').textContent = '提示';
       }
-      
+
       // 设置消息
       message.textContent = options.message || '';
-      
+
       // 设置按钮文本
       confirmBtn.textContent = options.confirmText || '确认';
       cancelBtn.textContent = options.cancelText || '取消';
-      
+
       // 设置按钮颜色
       confirmBtn.className = options.confirmClass || '';
-      
+
       // 处理输入框
       if (options.input) {
           inputContainer.style.display = 'block';
@@ -5610,20 +5622,20 @@ const adminHtmlContent = `
       } else {
           inputContainer.style.display = 'none';
       }
-      
+
       // 显示/隐藏取消按钮
       if (options.showCancel === false) {
           cancelBtn.style.display = 'none';
       } else {
           cancelBtn.style.display = 'inline-block';
       }
-      
+
       // 保存回调
       modalCallback = options.callback;
-      
+
       // 显示弹窗
       modal.classList.add('show');
-      
+
       // 如果有输入框，聚焦它
       if (options.input) {
           setTimeout(() => input.focus(), 100);
@@ -5641,11 +5653,11 @@ const adminHtmlContent = `
       function handleModalConfirm() {
       const input = document.getElementById('modal-input');
       const value = input.value;
-      
+
       if (modalCallback) {
           modalCallback(value);
       }
-      
+
       closeModal();
       }
 
@@ -5663,15 +5675,15 @@ const adminHtmlContent = `
           showCancel: true
       });
       }
-    
+
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const tabId = tab.getAttribute('data-tab');
-        
+
         // 更新活动标签
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        
+
         // 更新活动内容
         tabContents.forEach(content => {
           content.classList.remove('active');
@@ -5679,7 +5691,7 @@ const adminHtmlContent = `
             content.classList.add('active');
           }
         });
-        
+
         // 基于标签加载内容
         if (tabId === 'dashboard') {
           loadDashboard();
@@ -5690,28 +5702,28 @@ const adminHtmlContent = `
         }
       });
     });
-    
+
     // 通知消息
     const toast = document.getElementById('toast');
-    
+
     function showToast(message, isError = false) {
       toast.textContent = message;
       toast.style.background = isError ? 'rgba(231, 76, 60, 0.9)' : 'rgba(46, 204, 113, 0.9)';
       toast.classList.add('show');
-      
+
       setTimeout(() => {
         toast.classList.remove('show');
       }, 3000); // 延长显示时间
     }
-    
+
     // 图表实例对象
     let balanceDistChart, keyStatusChart, balanceTrendChart;
-    
+
     // 增强的仪表盘加载函数
     function loadDashboard() {
       loadStats();
       loadRecentKeys();
-      
+
       // 添加图表数据加载和渲染
       loadChartData();
     }
@@ -5721,20 +5733,20 @@ const adminHtmlContent = `
       try {
         const response = await fetch('/admin/api/keys');
         if (!response.ok) throw new Error('加载密钥失败');
-        
+
         const result = await response.json();
         if (result.success) {
           const keys = result.data;
-          
+
           // 处理余额分布数据
           renderBalanceDistributionChart(keys);
-          
+
           // 处理密钥状态数据
           renderKeyStatusChart(keys);
-          
+
           // 处理余额趋势数据
           renderBalanceTrendChart(keys);
-          
+
           // 更新余额统计信息
           updateBalanceStats(keys);
         }
@@ -5743,11 +5755,11 @@ const adminHtmlContent = `
         showToast('加载图表数据失败', true);
       }
     }
-    
+
     // 渲染余额分布图表
     function renderBalanceDistributionChart(keys) {
       const ctx = document.getElementById('balance-distribution-chart').getContext('2d');
-      
+
       // 定义余额区间
       const ranges = [
         { min: 0, max: 10, label: '0-10' },
@@ -5758,7 +5770,7 @@ const adminHtmlContent = `
         { min: 100, max: 1000, label: '100-1000' },
         { min: 1000, max: Infinity, label: '1000+' }
       ];
-      
+
       // 计算每个区间的密钥数量
       const distribution = ranges.map(range => {
         return keys.filter(key => {
@@ -5766,12 +5778,12 @@ const adminHtmlContent = `
           return balance > range.min && balance <= range.max;
         }).length;
       });
-      
+
       // 销毁旧图表
       if (balanceDistChart) {
         balanceDistChart.destroy();
       }
-      
+
       // 创建新图表
       balanceDistChart = new Chart(ctx, {
         type: 'bar',
@@ -5840,21 +5852,21 @@ const adminHtmlContent = `
         }
       });
     }
-    
+
     // 渲染密钥状态图表
     function renderKeyStatusChart(keys) {
       const ctx = document.getElementById('key-status-chart').getContext('2d');
-      
+
       // 计算状态分布
       const valid = keys.filter(k => parseFloat(k.balance) > 0 && !k.lastError).length;
       const noBalance = keys.filter(k => parseFloat(k.balance) <= 0 && !k.lastError).length;
       const hasError = keys.filter(k => k.lastError).length;
-      
+
       // 销毁旧图表
       if (keyStatusChart) {
         keyStatusChart.destroy();
       }
-      
+
       // 创建新图表
       keyStatusChart = new Chart(ctx, {
         type: 'doughnut',
@@ -5904,20 +5916,20 @@ const adminHtmlContent = `
         }
       });
     }
-    
+
     // 渲染余额趋势图表
     function renderBalanceTrendChart(keys) {
       const ctx = document.getElementById('balance-trend-chart').getContext('2d');
-      
+
       // 获取有效密钥并按余额排序
       const validKeys = keys
         .filter(k => parseFloat(k.balance) > 0)
         .sort((a, b) => parseFloat(b.balance) - parseFloat(a.balance));
-      
+
       // 获取选定范围
       const rangeSelect = document.getElementById('trend-range');
       const range = rangeSelect ? rangeSelect.value : '20';
-      
+
       // 根据范围选择数据
       let displayKeys;
       if (range === 'all') {
@@ -5925,16 +5937,16 @@ const adminHtmlContent = `
       } else {
         displayKeys = validKeys.slice(0, parseInt(range));
       }
-      
+
       // 准备数据
       const labels = displayKeys.map((_, index) => \`密钥 \${index + 1}\`);
       const balances = displayKeys.map(k => parseFloat(k.balance) || 0);
-      
+
       // 销毁旧图表
       if (balanceTrendChart) {
         balanceTrendChart.destroy();
       }
-      
+
       // 创建新图表
       balanceTrendChart = new Chart(ctx, {
         type: 'bar',
@@ -6006,7 +6018,7 @@ const adminHtmlContent = `
           }
         }
       });
-      
+
       // 添加点击事件，显示详细信息
       ctx.canvas.onclick = function(evt) {
         const points = balanceTrendChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
@@ -6014,13 +6026,13 @@ const adminHtmlContent = `
           const firstPoint = points[0];
           const keyIndex = firstPoint.index;
           const key = displayKeys[keyIndex];
-          
+
           // 显示详细信息
           showKeyDetail(key);
         }
       };
     }
-    
+
     // 显示密钥详细信息
     function showKeyDetail(key) {
       showModal({
@@ -6034,20 +6046,20 @@ const adminHtmlContent = `
         }
       });
     }
-    
+
     // 更新余额统计信息
     function updateBalanceStats(keys) {
       // 过滤有效键（余额大于0）
       const validBalances = keys
         .map(k => parseFloat(k.balance) || 0)
         .filter(balance => balance > 0);
-      
+
       if (validBalances.length > 0) {
         // 计算最大值、最小值、中位数和总和
         const max = Math.max(...validBalances);
         const min = Math.min(...validBalances);
         const total = validBalances.reduce((sum, b) => sum + b, 0);
-        
+
         // 计算中位数
         const sorted = [...validBalances].sort((a, b) => a - b);
         let median;
@@ -6058,7 +6070,7 @@ const adminHtmlContent = `
           // 奇数个，取中间值
           median = sorted[Math.floor(sorted.length / 2)];
         }
-        
+
         // 更新显示
         document.getElementById('max-balance').textContent = max.toFixed(2);
         document.getElementById('min-balance').textContent = min.toFixed(2);
@@ -6072,7 +6084,7 @@ const adminHtmlContent = `
         document.getElementById('total-balance').textContent = '0.00';
       }
     }
-    
+
     // 设置图表切换事件
     document.addEventListener('DOMContentLoaded', function() {
       // 初始化图表范围选择器
@@ -6083,7 +6095,7 @@ const adminHtmlContent = `
           loadChartData();
         });
       }
-      
+
       // 初始化图表周期选择器
       const periodSelector = document.getElementById('chart-period');
       if (periodSelector) {
@@ -6092,7 +6104,7 @@ const adminHtmlContent = `
           loadChartData();
         });
       }
-      
+
       // 初始化趋势图显示切换按钮
       const trendViewToggle = document.getElementById('toggle-trend-view');
       if (trendViewToggle) {
@@ -6100,7 +6112,7 @@ const adminHtmlContent = `
           // 切换异常值显示
           if (balanceTrendChart) {
             const hideOutliers = !balanceTrendChart.options.scales.y.max;
-            
+
             if (hideOutliers) {
               // 计算一个合理的最大值 (去除异常值)
               const data = balanceTrendChart.data.datasets[0].data;
@@ -6108,7 +6120,7 @@ const adminHtmlContent = `
               const q3Index = Math.floor(sortedData.length * 0.75);
               const q3 = sortedData[q3Index];
               const maxNormal = q3 * 2; // 一个简单的启发式计算正常范围的最大值
-              
+
               balanceTrendChart.options.scales.y.max = maxNormal;
               trendViewToggle.textContent = '显示异常值';
             } else {
@@ -6116,7 +6128,7 @@ const adminHtmlContent = `
               balanceTrendChart.options.scales.y.max = undefined;
               trendViewToggle.textContent = '隐藏异常值';
             }
-            
+
             balanceTrendChart.update();
           }
         });
@@ -6133,7 +6145,7 @@ const adminHtmlContent = `
       const clientModeSwitch = document.getElementById('client-mode-switch');
       if (clientModeSwitch) {
         clientModeSwitch.checked = isClientMode;
-        
+
         // 添加切换事件监听
         clientModeSwitch.addEventListener('change', function() {
           isClientMode = this.checked;
@@ -6160,42 +6172,42 @@ const adminHtmlContent = `
             stream: false
           })
         });
-        
+
         if (!validationResponse.ok) {
           const errorData = await validationResponse.json().catch(() => null);
-          const errorMessage = errorData && errorData.error && errorData.error.message 
-            ? errorData.error.message 
+          const errorMessage = errorData && errorData.error && errorData.error.message
+            ? errorData.error.message
             : "密钥验证失败";
-          
+
           return {
             isValid: false,
             balance: 0,
             message: errorMessage
           };
         }
-        
+
         // 2. 查询余额
         const balanceResponse = await fetch("https://api.siliconflow.cn/v1/user/info", {
           method: "GET",
           headers: { "Authorization": \`Bearer \${key}\` }
         });
-        
+
         if (!balanceResponse.ok) {
           const errorData = await balanceResponse.json().catch(() => null);
-          const errorMessage = errorData && errorData.error && errorData.error.message 
-            ? errorData.error.message 
+          const errorMessage = errorData && errorData.error && errorData.error.message
+            ? errorData.error.message
             : "余额查询失败";
-          
+
           return {
             isValid: false,
             balance: 0,
             message: errorMessage
           };
         }
-        
+
         const data = await balanceResponse.json();
         const balance = data.data && data.data.totalBalance || 0;
-        
+
         return {
           isValid: true,
           balance: balance,
@@ -6215,10 +6227,10 @@ const adminHtmlContent = `
     async function clientCheckSingleKey(key) {
       try {
         showToast(\`正在检测密钥: \${key.substring(0, 8)}...\`);
-        
+
         // 客户端直接检测密钥
         const result = await clientCheckKeyValidity(key);
-        
+
         // 创建与批量更新格式相同的结果对象
         const singleResult = {
           key,
@@ -6235,20 +6247,20 @@ const adminHtmlContent = `
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             results: [singleResult] // 包装成数组，与批量更新格式一致
           })
         });
-        
+
         if (!response.ok) {
           throw new Error(\`更新失败: \${response.status}\`);
         }
-        
+
         const data = await response.json();
-        
+
         // 更新前端表格
         updateKeyInTable(key, result.balance, result.isValid, new Date().toISOString(), result.message);
-        
+
         return {
           success: true,
           key,
@@ -6272,7 +6284,7 @@ const adminHtmlContent = `
         showToast('请选择至少一个API Key', true);
         return;
       }
-      
+
       // 获取配置
       const intervalType = document.getElementById('interval-type').value;
       const minInterval = parseInt(document.getElementById('min-interval').value) || 500;
@@ -6282,71 +6294,71 @@ const adminHtmlContent = `
       const batchSize = parseInt(document.getElementById('batch-size').value) || 10;
       const fixedIntervalSeconds = parseFloat(document.getElementById('fixed-interval').value) || 1;
       const fixedInterval = Math.max(0, Math.round(fixedIntervalSeconds * 1000));
-      
+
       // 确保最小间隔不大于最大间隔
       const effectiveMinInterval = Math.max(0, minInterval);
       if (minInterval > maxInterval) {
         showToast('最小间隔不能大于最大间隔', true);
         return;
       }
-      
+
       try {
         // 准备进度显示
         showProgress("客户端模式检测密钥余额");
-        
+
         // 设置定时更新计时器并获取开始时间
         const startTime = setupProgressTimer();
-        
+
         // 将选中的密钥转换为数组
         const keysToCheck = Array.from(selectedKeys);
         const total = keysToCheck.length;
-        
+
         let processed = 0;
         let successful = 0;
         let failed = 0;
 
         // 收集所有检测结果
         const allResults = [];
-        
+
         // 更新进度显示函数
         function updateProgressDisplay() {
           const percentComplete = Math.floor((processed / total) * 100);
           const elapsed = Date.now() - startTime;
           const speed = processed > 0 ? elapsed / processed : 0;
           const remaining = (total - processed) * speed;
-          
+
           // 更新进度条
           updateProgress(processed, total, successful);
-          
+
           // 更新统计数据
           document.getElementById('progress-success-rate').textContent = \`成功: \${successful}, 失败: \${failed}\`;
-          
+
           const remainingText = formatTime(remaining);
           const speedText = (speed / 1000).toFixed(2) + '秒/项';
-          
+
           document.getElementById('progress-speed').textContent = speedText;
           document.getElementById('progress-eta').textContent = remainingText;
         }
-        
+
         // 使用用户设置的批处理大小
         const effectiveBatchSize = Math.max(1, Math.min(50, batchSize));
-        
+
         // 用于更新表格的函数
         function updateKeyInTable(key, balance, isValid, lastUpdated, errorMsg) {
           const row = document.querySelector(\`tr[data-key="\${key}"]\`);
           if (!row) return;
-          
+
           // 更新余额
           const balanceCell = row.querySelector('td:nth-child(4)');
           if (balanceCell) balanceCell.textContent = balance || 0;
-          
+
           // 更新最后更新时间
           const timeCell = row.querySelector('td:nth-child(5)');
           if (timeCell) {
             const updateTime = lastUpdated ? new Date(lastUpdated).toLocaleString() : new Date().toLocaleString();
             timeCell.innerHTML = \`<small>更新于 \${updateTime}</small>\`;
           }
-          
+
           // 更新状态
           const statusCell = row.querySelector('td:nth-child(7)');
           if (statusCell) {
@@ -6362,7 +6374,7 @@ const adminHtmlContent = `
             }
           }
         }
-        
+
         // 前端分批处理所有密钥
         for (let i = 0; i < keysToCheck.length; i += effectiveBatchSize) {
           // 检查是否收到停止信号
@@ -6372,16 +6384,16 @@ const adminHtmlContent = `
             showToast(\`批量检测已停止！已完成: \${processed}/\${total}\`);
             return;
           }
-          
+
           // 获取当前批次的密钥
           const currentBatch = keysToCheck.slice(i, i + effectiveBatchSize);
-          
+
           // 创建当前批次所有密钥的检测Promise
           const batchPromises = currentBatch.map(async (key, idx) => {
             try {
               let result = null;
               let retryAttempt = 0;
-              
+
               // 添加间隔延迟
               if (intervalType === 'fixed') {
                 // 固定间隔 - 每个密钥之间等待相同的时间
@@ -6393,46 +6405,46 @@ const adminHtmlContent = `
                   await new Promise(resolve => setTimeout(resolve, randomDelay));
                 }
               }
-              
+
               // 重试逻辑
               while (retryAttempt <= retryCount) {
                 try {
                   // 客户端直接请求API检测
                   result = await clientCheckKeyValidity(key);
-                  
+
                   // 验证成功，跳出重试循环
                   if (result.isValid) break;
-                  
+
                   // 达到最大重试次数
                   if (retryAttempt >= retryCount) break;
-                  
+
                   // 等待重试间隔时间
                   await new Promise(resolve => setTimeout(resolve, retryInterval));
                   retryAttempt++;
                 } catch (error) {
                   console.error(\`检测密钥 \${key} 第 \${retryAttempt + 1} 次重试时出错:\`, error);
-                  
+
                   if (retryAttempt >= retryCount) break;
-                  
+
                   // 等待重试间隔时间
                   await new Promise(resolve => setTimeout(resolve, retryInterval));
                   retryAttempt++;
                 }
               }
-              
+
               // 更新表格显示
               updateKeyInTable(key, result.balance, result.isValid, new Date().toISOString(), result.message);
-              
+
               // 添加到结果集合
               allResults.push({
                 key,
                 balance: result.balance,
                 success: result.isValid,  // 添加success字段，与后端API返回格式一致
-                isValid: result.isValid, 
+                isValid: result.isValid,
                 lastError: result.isValid ? null : result.message,
                 clientDetected: true
               });
-          
+
               // 更新进度计数
               processed++;
               if (result.isValid) {
@@ -6440,10 +6452,10 @@ const adminHtmlContent = `
               } else {
                 failed++;
               }
-              
+
               // 更新进度显示
               updateProgressDisplay();
-              
+
               return {
                 key,
                 success: true,
@@ -6451,14 +6463,14 @@ const adminHtmlContent = `
               };
             } catch (error) {
               console.error(\`处理密钥 \${key} 时出错:\`, error);
-              
+
               // 更新进度计数
               processed++;
               failed++;
-              
+
               // 更新表格显示为错误状态
               updateKeyInTable(key, 0, false, new Date().toISOString(), error.message);
-              
+
               // 更新进度显示
               updateProgressDisplay();
 
@@ -6471,7 +6483,7 @@ const adminHtmlContent = `
                 lastError: error.message,
                 clientDetected: true
               });
-              
+
               return {
                 key,
                 success: false,
@@ -6479,10 +6491,10 @@ const adminHtmlContent = `
               };
             }
           });
-          
+
           // 等待当前批次所有请求完成
           await Promise.all(batchPromises);
-          
+
           // 在批次之间可以添加额外延迟
           if (i + effectiveBatchSize < keysToCheck.length && !isBatchProcessingStopped) {
             await new Promise(resolve => setTimeout(resolve, 200));
@@ -6497,18 +6509,18 @@ const adminHtmlContent = `
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ results: allResults })
             });
-            
+
             if (!updateResponse.ok) {
               console.error('批量更新数据库失败:', await updateResponse.text());
             } else {
               // 解析返回的结果
               const updateResult = await updateResponse.json();
-              
+
               // 使用服务器返回的准确数据更新进度
               if (updateResult.success) {
                 successful = updateResult.updated;
                 failed = updateResult.failed;
-                
+
                 // 更新最终进度显示
                 updateProgress(total, total, successful);
                 document.getElementById('progress-success-rate').textContent = \`成功: \${successful}, 失败: \${failed}\`;
@@ -6518,17 +6530,17 @@ const adminHtmlContent = `
             console.error('更新数据库时出错:', dbError);
           }
         }
-        
+
         // 处理完成
         setTimeout(() => {
           stopProgressTimer();
           hideProgress();
           showToast(\`批量检测完成！成功: \${successful}, 失败: \${failed}\`);
-          
+
           // 刷新密钥列表
           loadAllKeys();
         }, 1000);
-        
+
       } catch (error) {
         stopProgressTimer();
         hideProgress();
@@ -6542,25 +6554,25 @@ const adminHtmlContent = `
       try {
           const response = await fetch('/admin/api/keys');
           if (!response.ok) throw new Error('加载密钥失败');
-          
+
           const result = await response.json();
           if (result.success) {
           const keys = result.data;
-          
+
           // 计算统计数据
           const totalKeys = keys.length;
           const validKeys = keys.filter(k => k.balance > 0).length;
           const invalidKeys = totalKeys - validKeys;
-          
+
           // 修正计算平均余额的方式
           const validBalances = keys
               .map(k => parseFloat(k.balance) || 0)
               .filter(balance => balance > 0);
-              
-          const avgBalance = validBalances.length > 0 
+
+          const avgBalance = validBalances.length > 0
               ? (validBalances.reduce((a, b) => a + b, 0) / validBalances.length).toFixed(2)
               : '0.00';
-          
+
           // 更新UI
           document.getElementById('total-keys-stat').textContent = totalKeys;
           document.getElementById('valid-keys-stat').textContent = validKeys;
@@ -6572,34 +6584,34 @@ const adminHtmlContent = `
           showToast('加载统计数据失败', true);
       }
     }
-    
+
     // 加载最近添加的密钥
     async function loadRecentKeys() {
       try {
         const response = await fetch('/admin/api/keys');
         if (!response.ok) throw new Error('加载密钥失败');
-        
+
         const result = await response.json();
         if (result.success) {
           const keys = result.data;
-          
+
           // 按添加时间排序（最新的在前面）并获取前5个
           const recentKeys = [...keys]
             .sort((a, b) => new Date(b.added) - new Date(a.added))
             .slice(0, 5);
-          
+
           const tableBody = document.querySelector('#recent-keys-table tbody');
-          
+
           if (recentKeys.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="4" class="empty-state">暂无数据</td></tr>';
             return;
           }
-          
+
           let html = '';
           recentKeys.forEach(key => {
             const addedDate = new Date(key.added).toLocaleString();
             const balance = parseFloat(key.balance) || 0;
-            
+
             // 检查是否有错误信息或余额不足
             let statusHtml = '<td><span class="admin-normal-status">正常</span></td>';
             if (balance <= 0 || key.lastError) {
@@ -6611,7 +6623,7 @@ const adminHtmlContent = `
                 </span>
               </td>\`;
             }
-            
+
             html += \`
               <tr>
                 <td class="key-column">\${key.key}</td>
@@ -6621,7 +6633,7 @@ const adminHtmlContent = `
               </tr>
             \`;
           });
-          
+
           tableBody.innerHTML = html;
         }
       } catch (error) {
@@ -6630,27 +6642,27 @@ const adminHtmlContent = `
         tableBody.innerHTML = '<tr><td colspan="4" class="empty-state">加载失败</td></tr>';
       }
     }
-    
+
     // 密钥管理功能
     async function loadAllKeys() {
       try {
         const response = await fetch('/admin/api/keys');
         if (!response.ok) throw new Error('加载密钥失败');
-        
+
         const result = await response.json();
         if (result.success) {
           const keys = result.data;
-          
+
           const tableBody = document.querySelector('#all-keys-table tbody');
-          
+
           if (keys.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无API Keys</td></tr>';
             return;
           }
-          
+
           // 应用排序逻辑
           const sortedKeys = sortKeys(keys, currentSortField, currentSortOrder);
-      
+
           // 更新表头以支持排序
           const tableHeader = document.querySelector('#all-keys-table thead tr');
           tableHeader.innerHTML = \`
@@ -6658,7 +6670,7 @@ const adminHtmlContent = `
             <th width="30px"><input type="checkbox" id="select-all-table"></th>
             <th>API Key</th>
             <th class="sort-header" data-sort="balance">
-              余额 
+              余额
               <span class="sort-icon" id="sort-balance">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sort-arrow"><path d="M7 10l5 5 5-5"></path></svg>
               </span>
@@ -6678,15 +6690,15 @@ const adminHtmlContent = `
             <th>状态</th>
             <th>操作</th>
           \`;
-          
+
           // 更新排序图标状态
           updateSortIcons();
-          
+
           // 为表头添加事件
           document.querySelectorAll('.sort-header').forEach(header => {
             header.addEventListener('click', () => {
               const sortField = header.getAttribute('data-sort');
-              
+
               // 如果点击当前排序列，切换排序顺序
               if (sortField === currentSortField) {
                 currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
@@ -6695,32 +6707,32 @@ const adminHtmlContent = `
                 currentSortField = sortField;
                 currentSortOrder = 'desc';
               }
-              
+
               // 更新排序图标并重新加载数据
               loadAllKeys();
             });
           });
-          
+
           let html = '';
           sortedKeys.forEach((key, index) => {
             // 序号从1开始
             const rowNumber = index + 1;
-            
+
             // 使用最后更新时间，如果没有则使用添加时间
             const updateTime = key.lastUpdated ? new Date(key.lastUpdated) : new Date(key.added);
             const timeLabel = key.lastUpdated ? '更新于' : '添加于';
             const displayTime = updateTime.toLocaleString();
-            
+
             // 添加时间格式化
             const addedTime = new Date(key.added).toLocaleString();
-            
+
             // 检查是否在选中集合中
             const isChecked = selectedKeys.has(key.key) ? 'checked' : '';
 
             // 检查余额是否为负数或0，或者有错误信息
             const balance = parseFloat(key.balance) || 0;
             let statusHtml = '';
-                
+
             if (balance <= 0 || key.lastError) {
               // 确定显示的错误消息
               const errorMsg = key.lastError || (balance <= 0 ? '余额不足' : '未知错误');
@@ -6733,7 +6745,7 @@ const adminHtmlContent = `
             } else {
               statusHtml = '<td><span class="admin-normal-status">正常</span></td>';
             }
-            
+
             html += \`
             <tr data-key="\${key.key}" class="\${isChecked ? 'selected-row' : ''}">
                 <td class="row-number">\${rowNumber}</td>
@@ -6750,9 +6762,9 @@ const adminHtmlContent = `
             </tr>
             \`;
           });
-          
+
           tableBody.innerHTML = html;
-          
+
           // 添加事件监听器
           attachKeySelectors();
           updateSelectionStatus();
@@ -6771,7 +6783,7 @@ const adminHtmlContent = `
         checkbox.addEventListener('change', function() {
           const key = this.getAttribute('data-key');
           const row = this.closest('tr');
-          
+
           if (this.checked) {
             selectedKeys.add(key);
             row.classList.add('selected-row');
@@ -6779,11 +6791,11 @@ const adminHtmlContent = `
             selectedKeys.delete(key);
             row.classList.remove('selected-row');
           }
-          
+
           updateSelectionStatus();
         });
       });
-      
+
       // 表头全选/取消全选功能
       document.getElementById('select-all-table').addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('.key-selector');
@@ -6791,7 +6803,7 @@ const adminHtmlContent = `
           cb.checked = this.checked;
           const key = cb.getAttribute('data-key');
           const row = cb.closest('tr');
-          
+
           if (this.checked) {
             selectedKeys.add(key);
             row.classList.add('selected-row');
@@ -6800,10 +6812,10 @@ const adminHtmlContent = `
             row.classList.remove('selected-row');
           }
         });
-        
+
         updateSelectionStatus();
       });
-      
+
       // 行选择功能 - 点击行也可以选择
       document.querySelectorAll('#all-keys-table tbody tr').forEach(row => {
         row.addEventListener('click', function(e) {
@@ -6811,11 +6823,11 @@ const adminHtmlContent = `
           if (e.target.closest('.action-icon') || e.target.type === 'checkbox') {
             return;
           }
-          
+
           // 切换选择状态
           const checkbox = this.querySelector('.key-selector');
           checkbox.checked = !checkbox.checked;
-          
+
           // 触发change事件
           const event = new Event('change');
           checkbox.dispatchEvent(event);
@@ -6827,11 +6839,11 @@ const adminHtmlContent = `
     function updateSelectionStatus() {
       const count = selectedKeys.size;
       document.getElementById('selection-count').textContent = \`已选择 \${count} 个 Key\`;
-      
+
       // 设置批量操作按钮状态
       document.getElementById('check-selected-keys').disabled = count === 0;
       document.getElementById('delete-selected-keys').disabled = count === 0;
-      
+
       // 设置全选框状态
       const allCheckboxes = document.querySelectorAll('.key-selector');
       const allChecked = allCheckboxes.length > 0 && count === allCheckboxes.length;
@@ -6854,7 +6866,7 @@ const adminHtmlContent = `
         showToast('请选择至少一个API Key', true);
         return;
       }
-      
+
       // 获取配置
       const intervalType = document.getElementById('interval-type').value;
       const minInterval = parseInt(document.getElementById('min-interval').value) || 500;
@@ -6864,43 +6876,43 @@ const adminHtmlContent = `
 
       // 获取并发数量 - 前端批处理大小
       const batchSize = parseInt(document.getElementById('batch-size').value) || 10;
-      
+
       // 获取固定间隔秒数并转换为毫秒
       const fixedIntervalSeconds = parseFloat(document.getElementById('fixed-interval').value) || 1;
       const fixedInterval = Math.max(0, Math.round(fixedIntervalSeconds * 1000)); // 保证非负
-      
+
       // 确保最小间隔不大于最大间隔，可取0s
       const effectiveMinInterval = Math.max(0, minInterval);
       if (minInterval > maxInterval) {
         showToast('最小间隔不能大于最大间隔', true);
         return;
       }
-      
+
       try {
         // 准备进度显示
         showProgress("批量检测密钥余额");
-        
+
         // 设置定时更新计时器并获取开始时间
         const startTime = setupProgressTimer();
-        
+
         // 将选中的密钥转换为数组
         const keysToCheck = Array.from(selectedKeys);
         const total = keysToCheck.length;
-        
+
         let processed = 0;
         let successful = 0;
         let failed = 0;
-        
+
         // 创建结果映射
         const results = new Map(); // 存储结果
-        
+
         // 更新进度显示
         function updateProgressDisplay() {
           const percentComplete = Math.floor((processed / total) * 100);
           const elapsed = Date.now() - startTime;
           const speed = processed > 0 ? elapsed / processed : 0; // 每个key平均处理时间(ms)
           const remaining = (total - processed) * speed; // 估计剩余时间(ms)
-          
+
           // 更新进度条
           updateProgress(processed, total, successful);
 
@@ -6920,7 +6932,7 @@ const adminHtmlContent = `
             if (row) {
               // 更新余额
               row.querySelector('td:nth-child(4)').textContent = result.balance || 0;
-              
+
               // 更新时间
               const updateTime = result.lastUpdated ? new Date(result.lastUpdated).toLocaleString('zh-CN', {
                 year: 'numeric',
@@ -6941,7 +6953,7 @@ const adminHtmlContent = `
               });
 
               row.querySelector('td:nth-child(5)').innerHTML = \`<small>更新于 \${updateTime}</small>\`;
-            
+
               // 更新状态 - 判断是否成功且余额大于0
               if (result.success && result.balance > 0) {
                 row.querySelector('td:nth-child(7)').innerHTML = '<span class="admin-normal-status">正常</span>';
@@ -6956,10 +6968,10 @@ const adminHtmlContent = `
             }
           });
         }
-        
+
         // 使用用户设置的批处理大小
         const effectiveBatchSize = Math.max(1, Math.min(50, batchSize)); // 确保在1-50之间
-        
+
         // 前端分批处理所有密钥
         for (let i = 0; i < keysToCheck.length; i += effectiveBatchSize) {
           // 检查是否收到停止信号
@@ -6969,45 +6981,45 @@ const adminHtmlContent = `
             showToast(\`批量检测已停止！已完成: \${processed}/\${total}\`);
             return;
           }
-          
+
           // 获取当前批次
           const currentBatch = keysToCheck.slice(i, i + effectiveBatchSize);
           const batchNumber = Math.floor(i / effectiveBatchSize) + 1;
           const totalBatches = Math.ceil(keysToCheck.length / effectiveBatchSize);
-          
+
           // 更新状态显示当前批次信息
-          document.getElementById('progress-text').textContent = 
+          document.getElementById('progress-text').textContent =
             \`处理批次 \${batchNumber}/\${totalBatches} (\${processed}/\${total})\`;
-          
+
           try {
             // 前端发起一次性批量请求，每个批次发送单独的请求
             const response = await fetch('/admin/api/update-keys-balance', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
+              body: JSON.stringify({
                 keys: currentBatch
               })
             });
-            
+
             if (!response.ok) throw new Error(\`批量检测失败: \${response.status}\`);
-            
+
             const batchResult = await response.json();
-            
+
             if (batchResult.success && batchResult.results) {
               // 处理批量结果
               batchResult.results.forEach(result => {
                 // 保存结果
                 results.set(result.key, result);
-                
+
                 // 更新计数
                 processed++;
-                
+
                 if (result.success || result.isValid) {
                   successful++;
                 } else {
                   failed++;
                 }
-                
+
                 // 标记为已处理
                 processedKeysSet.add(result.key);
               });
@@ -7016,64 +7028,64 @@ const adminHtmlContent = `
             }
           } catch (error) {
             console.error('批量检测失败，回退到单个检测:', error);
-            
+
             // 批量请求失败，回退到单个请求模式
             for (const key of currentBatch) {
               // 检查是否已处理过
               if (processedKeysSet.has(key)) continue;
-              
+
               // 检查是否收到停止信号
               if (isBatchProcessingStopped) {
                 hideProgress();
                 showToast(\`批量检测已停止！已完成: \${processed}/\${total}\`);
                 return;
               }
-              
+
               try {
                 const response = await fetch('/admin/api/update-key-balance', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ key })
                 });
-                
+
                 if (!response.ok) throw new Error('检测余额失败');
-                
+
                 const result = await response.json();
-                
+
                 // 保存结果
                 results.set(key, result);
                 processed++;
-                
+
                 if (result.success) {
                   successful++;
                 } else {
                   failed++;
                 }
-                
+
                 // 标记为已处理
                 processedKeysSet.add(key);
               } catch (keyError) {
                 // 单个密钥失败处理
                 console.error(\`检测密钥 \${key} 出错:\`, keyError);
-                
+
                 // 重试逻辑省略，简化逻辑
-                
-                results.set(key, { 
-                  success: false, 
-                  balance: 0, 
-                  message: \`检测失败: \${keyError.message}\` 
+
+                results.set(key, {
+                  success: false,
+                  balance: 0,
+                  message: \`检测失败: \${keyError.message}\`
                 });
-                
+
                 processed++;
                 failed++;
                 processedKeysSet.add(key);
               }
             }
           }
-          
+
           // 更新进度显示
           updateProgressDisplay();
-          
+
           // 在批次之间添加延迟
           if (i + effectiveBatchSize < keysToCheck.length) {
             // 根据间隔类型计算延迟
@@ -7083,22 +7095,22 @@ const adminHtmlContent = `
             } else {
               delay = Math.floor(Math.random() * (maxInterval - effectiveMinInterval + 1)) + effectiveMinInterval;
             }
-            
+
             // 更新状态显示
-            document.getElementById('progress-text').textContent = 
+            document.getElementById('progress-text').textContent =
               \`等待下一批 (\${processed}/\${total} 已处理)\`;
-              
+
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
-        
+
         // 处理完成
         setTimeout(() => {
           stopProgressTimer(); // 确保停止计时器
           hideProgress();
           showToast(\`批量检测完成！成功: \${successful}, 失败: \${failed}\`);
         }, 1000);
-        
+
       } catch (error) {
         stopProgressTimer(); // 确保出错时也停止计时器
         hideProgress();
@@ -7112,9 +7124,9 @@ const adminHtmlContent = `
       if (isNaN(milliseconds) || milliseconds <= 0) {
         return "计算中...";
       }
-      
+
       const seconds = Math.floor(milliseconds / 1000);
-      
+
       if (seconds < 60) {
         return \`\${seconds}秒\`;
       } else if (seconds < 3600) {
@@ -7135,21 +7147,21 @@ const adminHtmlContent = `
         showToast('请选择至少一个API Key', true);
         return;
       }
-      
+
       confirmDialog(\`确定要删除这些API Key吗？此操作不可撤销，将删除 \${selectedKeys.size} 个密钥。\`, async (confirmed) => {
         if (!confirmed) return;
-        
+
         try {
           showProgress("正在批量删除密钥");
 
           // 设置定时更新计时器并获取开始时间
           const startTime = setupProgressTimer();
-          
+
           const keysToDelete = Array.from(selectedKeys);
           const total = keysToDelete.length;
           let processed = 0;
           let successful = 0;
-          
+
           for (const key of keysToDelete) {
             // 添加检查是否收到停止信号
             if (isBatchProcessingStopped) {
@@ -7158,50 +7170,50 @@ const adminHtmlContent = `
               loadAllKeys();
               return;
             }
-            
+
             try {
               const response = await fetch('/admin/api/delete-key', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ key })
               });
-              
+
               if (!response.ok) throw new Error('删除失败');
-              
+
               const result = await response.json();
               if (result.success) {
                 successful++;
                 selectedKeys.delete(key); // 从选中集合中移除
               }
-              
+
             } catch (error) {
               console.error(\`删除密钥 \${key} 失败:\`, error);
             } finally {
               processed++;
-              
+
               // 计算时间指标
               const elapsed = Date.now() - startTime;
               const speed = processed > 0 ? elapsed / processed : 0; // 每个key平均处理时间(ms)
               const remaining = (total - processed) * speed; // 估计剩余时间(ms)
-              
+
               // 格式化时间文本
               const remainingText = formatTime(remaining);
               const elapsedText = formatTime(elapsed);
               const speedText = (speed / 1000).toFixed(2) + '秒/项';
-              
+
               // 更新更详细的进度信息
               updateProgress(processed, total, successful);
-              
+
               // 更新详细信息
               document.getElementById('progress-speed').textContent = speedText;
               document.getElementById('progress-eta').textContent = remainingText;
               document.getElementById('progress-elapsed').textContent = elapsedText;
             }
-            
+
             // 添加短暂延迟避免请求过快
             await new Promise(resolve => setTimeout(resolve, 100));
           }
-          
+
           // 重新加载数据
           setTimeout(() => {
             stopProgressTimer(); // 确保停止计时器
@@ -7211,7 +7223,7 @@ const adminHtmlContent = `
             showToast(\`成功删除 \${successful} 个API Key\`);
             updateSelectionStatus(); // 更新选择状态
           }, 1000);
-          
+
         } catch (error) {
          stopProgressTimer(); // 确保出错时也停止计时器
           hideProgress();
@@ -7231,23 +7243,23 @@ const adminHtmlContent = `
       try {
         const row = document.querySelector(\`tr[data-key="\${key}"]\`);
         if (!row) return;
-        
+
         const balanceCell = row.querySelector('td:nth-child(4)');
         const timeCell = row.querySelector('td:nth-child(5)');
         const statusCell = row.querySelector('td:nth-child(7)');
-        
+
         if (!balanceCell || !timeCell || !statusCell) return;
-        
+
         // 显示加载中状态
         const originalBalanceText = balanceCell.textContent;
         const originalStatusHtml = statusCell.innerHTML;
         const originalTimeHtml = timeCell.innerHTML;
-        
+
         balanceCell.innerHTML = '<span class="loader" style="border-top-color: #3498db;"></span> 检测中';
         statusCell.innerHTML = '<span style="color: #3498db;">检测中...</span>';
-        
+
         let result;
-        
+
         if (isClientMode) {
           // 客户端模式：直接通过API检测
           result = await clientCheckSingleKey(key);
@@ -7258,21 +7270,21 @@ const adminHtmlContent = `
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ key })
           });
-          
+
           if (!response.ok) throw new Error('检测余额失败');
-          
+
           result = await response.json();
         }
-        
+
         const updateTime = result.lastUpdated ? new Date(result.lastUpdated).toLocaleString() : new Date().toLocaleString();
-        
+
         // 更新时间
         timeCell.innerHTML = \`<small>更新于 \${updateTime}</small>\`;
-        
+
         // 判断余额是否有效（大于0）
         const balance = parseFloat(result.balance) || 0;
         balanceCell.textContent = balance;
-        
+
         if ((result.success || result.isValid) && balance > 0) {
           // 余额正常
           statusCell.innerHTML = '<span class="admin-normal-status">正常</span>';
@@ -7295,7 +7307,7 @@ const adminHtmlContent = `
           const balanceCell = row.querySelector('td:nth-child(4)');
           const timeCell = row.querySelector('td:nth-child(5)');
           const statusCell = row.querySelector('td:nth-child(7)');
-          
+
           if (balanceCell) balanceCell.textContent = originalBalanceText || '0';
           if (statusCell) statusCell.innerHTML = originalStatusHtml || '<span style="color: #e74c3c;">错误</span>';
           if (timeCell) timeCell.innerHTML = originalTimeHtml || '<small>更新失败</small>';
@@ -7303,31 +7315,31 @@ const adminHtmlContent = `
         showToast('检测失败: ' + error.message, true);
       }
     };
-    
+
     // 添加密钥
     async function addKey() {
       const keyInput = document.getElementById('add-key-input');
       const key = keyInput.value.trim();
-      
+
       if (!key) {
           showToast('请输入API Key', true);
           return;
       }
-      
+
       try {
           const response = await fetch('/admin/api/add-key', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key })
           });
-          
+
           if (!response.ok) throw new Error('添加密钥失败');
-          
+
           const result = await response.json();
           if (result.success) {
           showToast('API Key添加成功，正在检测余额...');
           keyInput.value = '';
-          
+
           // 添加成功后自动检测余额
           try {
               await fetch('/admin/api/update-key-balance', {
@@ -7339,7 +7351,7 @@ const adminHtmlContent = `
           } catch (error) {
               console.error('添加后检测余额失败:', error);
           }
-          
+
           loadAllKeys();
           setTimeout(loadDashboard, 500);
           } else {
@@ -7350,51 +7362,51 @@ const adminHtmlContent = `
           showToast('添加失败: ' + error.message, true);
       }
     }
-    
+
     // 批量添加keys
     async function addBulkKeys() {
       const textarea = document.getElementById('bulk-keys-input');
       const keysText = textarea.value.trim();
-      
+
       if (!keysText) {
           showToast('请输入API Keys', true);
           return;
       }
-      
+
       try {
           const response = await fetch('/admin/api/add-keys-bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ keys: keysText })
           });
-          
+
           if (!response.ok) throw new Error('添加密钥失败');
-          
+
           const result = await response.json();
           if (result.success) {
             showToast(\`成功添加 \${result.count} 个API Keys，正在检测余额...\`);
             textarea.value = '';
-            
+
             // 修改这里：后端应直接返回添加的key字符串数组
             if (result.addedKeys && result.addedKeys.length > 0) {
               // 清除以前的选择
               selectedKeys.clear();
-              
+
               // 直接添加API Key字符串到selectedKeys集合
               result.addedKeys.forEach(key => {
                 selectedKeys.add(key);
               });
-              
+
               // 更新选择状态
               updateSelectionStatus();
-              
+
               // 如果需要自动检测
               if (result.autoCheck) {
                 // 调用批量检查
                 batchCheckSelectedKeys();
               }
             }
-            
+
             // 刷新密钥列表
             await loadAllKeys();
             setTimeout(loadDashboard, 500);
@@ -7406,21 +7418,21 @@ const adminHtmlContent = `
           showToast(\`添加密钥失败: \${error.message}\`, true);
       }
     }
-    
+
     // 全局删除密钥函数
     window.deleteKey = async function(key) {
       confirmDialog('确定要删除这个API Key吗？', async (confirmed) => {
           if (!confirmed) return;
-          
+
           try {
           const response = await fetch('/admin/api/delete-key', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ key })
           });
-          
+
           if (!response.ok) throw new Error('删除密钥失败');
-          
+
           const result = await response.json();
           if (result.success) {
               showToast('API Key已删除');
@@ -7438,12 +7450,12 @@ const adminHtmlContent = `
           confirmText: '删除'
       });
     };
-    
+
       // 增强批量操作面板的视觉反馈
       function enhanceBatchConfigPanelVisibility() {
         const configPanel = document.getElementById('batch-config-panel');
         const toggleBtn = document.getElementById('toggle-batch-config');
-        
+
         // 初始状态检查
         if (configPanel.classList.contains('show')) {
           toggleBtn.classList.add('active');
@@ -7452,7 +7464,7 @@ const adminHtmlContent = `
           toggleBtn.classList.remove('active');
           toggleBtn.querySelector('span').textContent = '高级设置';
         }
-        
+
         // 添加过渡结束事件监听器
         configPanel.addEventListener('transitionend', function(e) {
           if (e.propertyName === 'max-height') {
@@ -7474,11 +7486,11 @@ const adminHtmlContent = `
             // 添加超时处理
             signal: AbortSignal.timeout(10000) // 10秒超时
           });
-          
+
           if (!response.ok) {
             throw new Error(\`加载配置失败: 状态码 \${response.status}\`);
           }
-          
+
           const result = await response.json();
           if (result.success) {
             const config = result.data;
@@ -7491,7 +7503,7 @@ const adminHtmlContent = `
             accessControlSelect.value = config.accessControl || 'open';
             // 显示/隐藏访客密码输入框
             toggleGuestPasswordField(accessControlSelect.value);
-            
+
             // 预填访客密码（如果存在）
             if (config.guestPassword) {
               document.getElementById('guest-password-input').value = '';  // 出于安全考虑，不预填真实密码
@@ -7499,20 +7511,20 @@ const adminHtmlContent = `
             } else {
               document.getElementById('guest-password-input').placeholder = '设置访客密码';
             }
-    
+
           } else {
             throw new Error(result.message || '未知错误');
           }
       } catch (error) {
           console.error('加载设置时出错:', error);
-          
+
           // 如果还有重试次数，尝试重试
           if (attempts > 0) {
             console.log(\`尝试重新加载设置，剩余尝试次数: \${attempts-1}\`);
             await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒再重试
             return loadSettings(attempts - 1);
           }
-          
+
           // 显示错误提示
           showToast(\`加载设置失败: \${error.message}\`, true);
       }
@@ -7528,7 +7540,7 @@ const adminHtmlContent = `
     function sortKeys(keys, field, order) {
       return [...keys].sort((a, b) => {
         let valueA, valueB;
-        
+
         // 根据字段类型获取对应的值
         switch (field) {
           case 'balance':
@@ -7546,9 +7558,9 @@ const adminHtmlContent = `
             valueB = new Date(b.added).getTime();
             break;
         }
-        
+
         // 应用排序方向
-        return order === 'asc' 
+        return order === 'asc'
           ? valueA - valueB  // 升序
           : valueB - valueA; // 降序
       });
@@ -7559,31 +7571,31 @@ const adminHtmlContent = `
       document.querySelectorAll('.sort-icon').forEach(icon => {
         icon.classList.remove('active', 'asc', 'desc');
       });
-      
+
       const activeIcon = document.getElementById(\`sort-\${currentSortField}\`);
       if (activeIcon) {
         activeIcon.classList.add('active', currentSortOrder);
       }
     }
-    
+
     async function saveSettings(event) {
       // 阻止表单默认提交
       if (event) event.preventDefault();
-      
+
       const apiKey = document.getElementById('api-key-input').value.trim();
       const adminUsername = document.getElementById('admin-username-input').value.trim();
       const adminPassword = document.getElementById('admin-password-input').value.trim();
       const pageSize = parseInt(document.getElementById('page-size-input').value) || 10;
       const accessControl = document.getElementById('access-control-select').value;
       const guestPassword = document.getElementById('guest-password-input').value;
-  
-      
+
+
       const config = {};
       if (apiKey) config.apiKey = apiKey;
       if (adminUsername) config.adminUsername = adminUsername;
       if (adminPassword) config.adminPassword = adminPassword;
       if (pageSize) config.pageSize = pageSize;
-      
+
       // 添加访问控制设置
       config.accessControl = accessControl;
 
@@ -7605,9 +7617,9 @@ const adminHtmlContent = `
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config)
           });
-          
+
           if (!response.ok) throw new Error('更新配置失败');
-          
+
           const result = await response.json();
           if (result.success) {
           showToast('设置已保存');
@@ -7639,12 +7651,12 @@ const adminHtmlContent = `
 
       // 重置停止标记
       isBatchProcessingStopped = false;
-      
+
       titleElement.textContent = title || "操作进行中";
       progressFill.style.width = '0%';
       progressText.textContent = "0/0 (0%)";
       successRate.textContent = "成功: 0";
-      
+
       container.classList.add('active');
     }
 
@@ -7654,7 +7666,7 @@ const adminHtmlContent = `
       const progressFill = document.getElementById('progress-fill');
       const progressText = document.getElementById('progress-text');
       const successRate = document.getElementById('progress-success-rate');
-      
+
       progressFill.style.width = \`\${percent}%\`;
       progressText.textContent = \`\${current}/\${total} (\${percent}%)\`;
       successRate.textContent = \`成功: \${success}\`;
@@ -7669,15 +7681,15 @@ const adminHtmlContent = `
       if (progressUpdateTimer) {
         clearInterval(progressUpdateTimer);
       }
-      
+
       const startTime = Date.now();
-      
+
       // 创建新定时器，每500毫秒更新一次已用时间
       progressUpdateTimer = setInterval(() => {
         const elapsed = Date.now() - startTime;
         document.getElementById('progress-elapsed').textContent = formatTime(elapsed);
       }, 500);
-      
+
       return startTime; // 返回开始时间供其他函数使用
     }
 
@@ -7688,20 +7700,20 @@ const adminHtmlContent = `
         progressUpdateTimer = null;
       }
     }
-    
+
     // 隐藏进度条并禁用控件
     function hideProgress() {
       const container = document.getElementById('progress-container');
       container.classList.remove('active');
-      
+
       // 重置停止按钮状态
       const stopButton = document.getElementById('stop-batch-process');
       stopButton.disabled = false;
       stopButton.textContent = '停止检测';
-      
+
       // 重置停止标记
       isBatchProcessingStopped = false;
-      
+
       // 停止进度定时器
       stopProgressTimer();
     }
@@ -7710,43 +7722,43 @@ const adminHtmlContent = `
     async function updateAllBalances() {
       const btn = document.getElementById('update-balances-btn');
       const originalText = btn.textContent;
-      
+
       confirmDialog('确定要更新所有密钥的余额吗？这可能需要几分钟时间完成。', async (confirmed) => {
         if (!confirmed) return;
 
         btn.disabled = true;
         btn.innerHTML = '<span class="loader"></span>更新中...';
-        
+
         try {
           // 获取所有密钥并全选
           const response = await fetch('/admin/api/keys');
           if (!response.ok) throw new Error('获取密钥失败');
-          
+
           const result = await response.json();
           if (!result.success) throw new Error('获取密钥数据失败');
-          
+
           const allKeys = result.data;
-          
+
           if (allKeys.length === 0) {
             showToast('没有可更新的密钥');
             return;
           }
-          
+
           // 清除现有选择
           selectedKeys.clear();
-          
+
           // 将所有密钥添加到选中集合
           allKeys.forEach(key => selectedKeys.add(key.key));
-          
+
           // 更新选择状态UI
           updateSelectionStatus();
-          
+
           // 调用批量检测功能
           await batchCheckSelectedKeys();
-          
+
           // 更新完成后刷新仪表盘数据
           setTimeout(loadDashboard, 500);
-          
+
         } catch (error) {
           hideProgress();
           showToast(\`更新失败: \${error.message}\`, true);
@@ -7765,19 +7777,19 @@ const adminHtmlContent = `
     function closeBalanceFilterModal() {
       document.getElementById('balance-filter-modal').classList.remove('show');
     }
-    
+
     // 显示余额过滤模态框
     function showBalanceFilterModal() {
       document.getElementById('balance-filter-modal').classList.add('show');
     }
-    
+
     // 导出选中的密钥
     function exportSelectedKeys() {
       if (selectedKeys.size === 0) {
         showToast('请先选择要导出的密钥', true);
         return;
       }
-      
+
       exportKeys(Array.from(selectedKeys), '已选密钥');
     }
 
@@ -7787,17 +7799,17 @@ const adminHtmlContent = `
         showToast('请先选择要复制的密钥', true);
         return;
       }
-      
+
       try {
         // 获取分隔符
         const delimiter = getSelectedDelimiter();
-        
+
         // 复制到剪贴板
         const keysText = Array.from(selectedKeys).join(delimiter);
         await navigator.clipboard.writeText(keysText);
-        
+
         showToast(\`成功复制 \${selectedKeys.size} 个密钥到剪贴板\`);
-        
+
       } catch (error) {
         console.error('复制所选密钥失败:', error);
         showToast(\`复制失败: \${error.message}\`, true);
@@ -7807,7 +7819,7 @@ const adminHtmlContent = `
     // 获取当前选择的分隔符
     function getSelectedDelimiter() {
       const delimiterType = document.getElementById('delimiter-select').value;
-      
+
       switch (delimiterType) {
         case 'newline':
           return '\\n';
@@ -7831,23 +7843,23 @@ const adminHtmlContent = `
       const delimiterType = document.getElementById('delimiter-select').value;
       const displayElement = document.getElementById('delimiter-display');
       const customDelimiterInput = document.getElementById('custom-delimiter');
-      
+
       // 显示/隐藏自定义分隔符输入框
       if (delimiterType === 'custom') {
         customDelimiterInput.style.display = 'inline-block';
         customDelimiterInput.focus();
-        
+
         // 为自定义分隔符添加change事件
         customDelimiterInput.onchange = function() {
           displayElement.textContent = \`"\${this.value}"\`;
         };
-        
+
         // 显示当前自定义值
         const currentCustomValue = customDelimiterInput.value || '';
         displayElement.textContent = \`"\${currentCustomValue}"\`;
       } else {
         customDelimiterInput.style.display = 'none';
-        
+
         // 显示选定的分隔符
         switch (delimiterType) {
           case 'newline':
@@ -7868,35 +7880,35 @@ const adminHtmlContent = `
         }
       }
     }
-    
+
     // 清除无效密钥
     function clearInvalidKeys() {
       confirmDialog('确定要删除所有无效密钥吗？此操作不可撤销。', async (confirmed) => {
         if (!confirmed) return;
-        
+
         try {
           // 获取所有密钥
           const response = await fetch('/admin/api/keys');
           if (!response.ok) throw new Error('获取密钥失败');
-          
+
           const result = await response.json();
           if (!result.success) throw new Error('获取密钥失败');
-          
+
           const keys = result.data;
           const invalidKeys = keys.filter(k => k.balance <= 0 || k.lastError).map(k => k.key);
-          
+
           if (invalidKeys.length === 0) {
             showToast('没有找到无效密钥');
             return;
           }
-          
+
           // 显示进度条
           showProgress("正在删除无效密钥");
-          
+
           // 批量删除
           let processed = 0;
           let successful = 0;
-          
+
           for (const key of invalidKeys) {
             try {
               const deleteResponse = await fetch('/admin/api/delete-key', {
@@ -7904,7 +7916,7 @@ const adminHtmlContent = `
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ key })
               });
-              
+
               if (deleteResponse.ok) {
                 const deleteResult = await deleteResponse.json();
                 if (deleteResult.success) successful++;
@@ -7914,12 +7926,12 @@ const adminHtmlContent = `
             } finally {
               processed++;
               updateProgress(processed, invalidKeys.length, successful);
-              
+
               // 添加短暂延迟避免请求过快
               await new Promise(resolve => setTimeout(resolve, 100));
             }
           }
-          
+
           // 完成后重新加载数据
           setTimeout(() => {
             hideProgress();
@@ -7927,7 +7939,7 @@ const adminHtmlContent = `
             setTimeout(loadDashboard, 500);
             showToast(\`成功删除 \${successful} 个无效密钥\`);
           }, 1000);
-          
+
         } catch (error) {
           hideProgress();
           console.error('清除无效密钥失败:', error);
@@ -7938,58 +7950,58 @@ const adminHtmlContent = `
         confirmClass: 'danger'
       });
     }
-    
+
     // 导出所有有效密钥
     async function exportValidKeys() {
       try {
         // 获取所有密钥
         const response = await fetch('/admin/api/keys');
         if (!response.ok) throw new Error('获取密钥失败');
-        
+
         const result = await response.json();
         if (!result.success) throw new Error('获取密钥失败');
-        
+
         const keys = result.data;
         const validKeys = keys.filter(k => k.balance > 0 && !k.lastError).map(k => k.key);
-        
+
         if (validKeys.length === 0) {
           showToast('没有找到有效密钥', true);
           return;
         }
-        
+
         exportKeys(validKeys, '有效密钥');
-        
+
       } catch (error) {
         console.error('导出有效密钥失败:', error);
         showToast(\`导出失败: \${error.message}\`, true);
       }
     }
-    
+
     // 导出高余额密钥
     async function exportFilteredKeys() {
       try {
         // 获取最低余额阈值
         const minBalance = parseFloat(document.getElementById('min-balance-input').value) || 0;
         const includeBalances = document.getElementById('include-balances').checked;
-        
+
         // 关闭模态框
         closeBalanceFilterModal();
-        
+
         // 获取所有密钥
         const response = await fetch('/admin/api/keys');
         if (!response.ok) throw new Error('获取密钥失败');
-        
+
         const result = await response.json();
         if (!result.success) throw new Error('获取密钥失败');
-        
+
         const keys = result.data;
         const filteredKeys = keys.filter(k => parseFloat(k.balance) >= minBalance && !k.lastError);
-        
+
         if (filteredKeys.length === 0) {
           showToast(\`没有找到余额高于 \${minBalance} 的密钥\`, true);
           return;
         }
-        
+
         if (includeBalances) {
           // 导出格式: key|balance
           const keysWithBalances = filteredKeys.map(k => \`\${k.key}|\${k.balance}\`);
@@ -7999,82 +8011,82 @@ const adminHtmlContent = `
           const keysOnly = filteredKeys.map(k => k.key);
           exportKeys(keysOnly, \`余额≥\${minBalance}密钥\`);
         }
-        
+
       } catch (error) {
         console.error('导出高余额密钥失败:', error);
         showToast(\`导出失败: \${error.message}\`, true);
       }
     }
-    
+
     // 复制所有密钥
     async function copyAllKeys() {
       try {
         // 获取所有密钥
         const response = await fetch('/admin/api/keys');
         if (!response.ok) throw new Error('获取密钥失败');
-        
+
         const result = await response.json();
         if (!result.success) throw new Error('获取密钥失败');
-        
+
         const keys = result.data.map(k => k.key);
-        
+
         if (keys.length === 0) {
           showToast('没有找到可复制的密钥', true);
           return;
         }
-        
+
         // 获取分隔符
         const delimiter = getSelectedDelimiter();
-        
+
         // 复制到剪贴板
         const keysText = keys.join(delimiter);
         await navigator.clipboard.writeText(keysText);
-        
+
         showToast(\`成功复制 \${keys.length} 个密钥到剪贴板\`);
-        
+
       } catch (error) {
         console.error('复制所有密钥失败:', error);
         showToast(\`复制失败: \${error.message}\`, true);
       }
     }
-    
+
     // 通用导出密钥函数
     function exportKeys(keys, description, isFormatted = false) {
       if (!keys || keys.length === 0) {
         showToast('没有可导出的密钥', true);
         return;
       }
-      
+
       try {
         // 获取用户指定的分隔符
         const delimiter = getSelectedDelimiter();
-        
+
         // 创建Blob对象
         const keysText = keys.join(delimiter);
         const blob = new Blob([keysText], { type: 'text/plain' });
-        
+
         // 创建下载链接
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        
+
         // 设置文件名
         const date = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
         const formattedType = isFormatted ? '(带余额)' : '';
         a.download = \`siliconflow-\${description}\${formattedType}-\${date}.txt\`; // 导出文件名
-        
+
         // 模拟点击
         document.body.appendChild(a);
         a.click();
-        
+
         // 清理
         setTimeout(() => {
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
         }, 100);
-        
+
         showToast(\`成功导出 \${keys.length} 个\${description}\`);
-        
+
       } catch (error) {
         console.error('导出密钥失败:', error);
         showToast(\`导出失败: \${error.message}\`, true);
@@ -8083,7 +8095,7 @@ const adminHtmlContent = `
 
     // 添加隐藏进度条函数
     window.hideProgress = hideProgress;
-    
+
     // 事件监听器
     document.addEventListener('DOMContentLoaded', () => {
 
@@ -8091,27 +8103,27 @@ const adminHtmlContent = `
       document.getElementById('select-all-keys').addEventListener('change', function() {
         const tableCheckbox = document.getElementById('select-all-table');
         tableCheckbox.checked = this.checked;
-        
+
         // 触发表格全选按钮的change事件
         const event = new Event('change');
         tableCheckbox.dispatchEvent(event);
       });
-      
+
       // 显示/隐藏批量配置面板
       document.getElementById('toggle-batch-config').addEventListener('click', function() {
         const configPanel = document.getElementById('batch-config-panel');
         configPanel.classList.toggle('show');
         this.classList.toggle('active');
-        
+
         // 使用平滑动画效果更新按钮文本
         const btnText = this.querySelector('span');
         const btnIcon = this.querySelector('svg');
-        
+
         if (configPanel.classList.contains('show')) {
           // 配置面板显示状态
           btnIcon.style.transform = 'rotate(180deg)';
           btnText.textContent = '点击收起';
-          
+
           // 平滑滚动到配置面板
           setTimeout(() => {
             configPanel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
@@ -8122,7 +8134,7 @@ const adminHtmlContent = `
           btnText.textContent = '高级设置';
         }
       });
-      
+
       // 批量检测按钮
       document.getElementById('check-selected-keys').addEventListener('click', async () => {
         try {
@@ -8145,11 +8157,11 @@ const adminHtmlContent = `
       // 仪表盘
       document.getElementById('refresh-stats-btn').addEventListener('click', loadDashboard);
       document.getElementById('update-balances-btn').addEventListener('click', updateAllBalances);
-      
+
       // 密钥
       document.getElementById('add-key-btn').addEventListener('click', addKey);
       document.getElementById('add-bulk-keys-btn').addEventListener('click', addBulkKeys);
-      
+
       // 按Enter键添加单个密钥
       document.getElementById('add-key-input').addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
@@ -8159,20 +8171,20 @@ const adminHtmlContent = `
 
       // 添加间隔类型切换逻辑
       const intervalTypeSelect = document.getElementById('interval-type');
-      
+
       // 监听间隔类型变化
       intervalTypeSelect.addEventListener('change', updateIntervalFields);
-      
+
       function updateIntervalFields() {
         const intervalType = intervalTypeSelect.value;
         const fixedIntervalContainer = document.getElementById('fixed-interval-container');
         const randomIntervalContainer = document.getElementById('random-interval-container');
-        
+
         if (intervalType === 'fixed') {
           // 显示固定间隔，隐藏随机间隔
           fixedIntervalContainer.style.display = 'block';
           randomIntervalContainer.style.display = 'none';
-          
+
           // 视觉反馈
           fixedIntervalContainer.style.opacity = '1';
           randomIntervalContainer.style.opacity = '0.5';
@@ -8180,13 +8192,13 @@ const adminHtmlContent = `
           // 显示随机间隔，隐藏固定间隔
           fixedIntervalContainer.style.display = 'none';
           randomIntervalContainer.style.display = 'block';
-          
+
           // 视觉反馈
           fixedIntervalContainer.style.opacity = '0.5';
           randomIntervalContainer.style.opacity = '1';
         }
       }
-      
+
       // 初始化输入框状态
       updateIntervalFields();
 
@@ -8196,15 +8208,15 @@ const adminHtmlContent = `
       // 下拉菜单控制
       const moreActionsBtn = document.getElementById('more-actions');
       const dropdownContent = document.querySelector('.dropdown-content');
-      
+
       moreActionsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         dropdownContent.classList.toggle('show');
-        
+
         // 添加或移除活跃状态样式
         moreActionsBtn.classList.toggle('active', dropdownContent.classList.contains('show'));
       });
-      
+
       // 点击其他地方关闭下拉菜单
       document.addEventListener('click', (e) => {
         if (!moreActionsBtn.contains(e.target)) {
@@ -8212,31 +8224,31 @@ const adminHtmlContent = `
           moreActionsBtn.classList.remove('active');
         }
       });
-      
+
       // 导出选中密钥
       document.getElementById('export-selected-keys').addEventListener('click', exportSelectedKeys);
-      
+
       // 清除无效密钥
       document.getElementById('clear-invalid-keys').addEventListener('click', clearInvalidKeys);
-      
+
       // 导出有效密钥
       document.getElementById('export-valid-keys').addEventListener('click', exportValidKeys);
-      
+
       // 导出高余额密钥
       document.getElementById('export-balance-keys').addEventListener('click', showBalanceFilterModal);
-      
+
       // 复制所有密钥
       document.getElementById('copy-all-keys').addEventListener('click', copyAllKeys);
-      
+
       // 复制所选密钥
       document.getElementById('copy-selected-keys').addEventListener('click', copySelectedKeys);
-      
+
       // 导出过滤后的密钥按钮
       document.getElementById('export-filtered-keys').addEventListener('click', exportFilteredKeys);
-      
+
       // 停止批量处理按钮点击事件
       document.getElementById('stop-batch-process').addEventListener('click', stopBatchProcessing);
-      
+
       // 更新分隔符文本显示
       document.getElementById('delimiter-select').addEventListener('change', updateDelimiterDisplay);
 
@@ -8247,11 +8259,11 @@ const adminHtmlContent = `
 
       // 初始化分隔符显示
       updateDelimiterDisplay();
-      
+
       // 添加事件监听器
       document.getElementById('delimiter-select').addEventListener('change', updateDelimiterDisplay);
       document.getElementById('custom-delimiter').addEventListener('input', updateDelimiterDisplay);
-      
+
       // 扩展更新选择状态函数
       const originalUpdateSelectionStatus = updateSelectionStatus;
       window.updateSelectionStatus = function() {
@@ -8263,7 +8275,7 @@ const adminHtmlContent = `
       document.getElementById('access-control-select').addEventListener('change', function() {
         toggleGuestPasswordField(this.value);
       });
-                
+
       // 初始加载
       loadDashboard();
     });
