@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS keys (
 
 -- 插入默认配置
 INSERT INTO config (name, value) VALUES
-  ('admin_username', 'default-admin-username'),
-  ('admin_password', 'default-admin-password'),
+  ('admin_username', 'admin'),
+  ('admin_password', 'admin-password'),
   ('api_key', 'default-api-key'),
   ('page_size', '12'),
   ('access_control', 'open'),
-  ('guest_password', 'guest_password');
+  ('guest_password', 'guest-password');

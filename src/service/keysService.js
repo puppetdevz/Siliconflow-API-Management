@@ -212,6 +212,23 @@ export async function updateAllKeyBalances() {
 	}
 }
 
+/**
+ * 为每个密钥单独更新检查时间，避免批量请求出现流锁定问题
+ * @param {*} key
+ * @param {*} lastUpdated
+ * @returns
+ */
+export async function updateKeyLastCheckTime(key, lastUpdated) {
+	try {
+		await env.db.prepare(`UPDATE keys SET last_updated = ? WHERE key = ?`).bind(lastUpdated, key).run();
+
+		return true;
+	} catch (error) {
+		console.error(`更新密钥 ${key} 时间失败:`, error);
+		return false;
+	}
+}
+
 export default {
 	getAllKeys,
 	addKey,

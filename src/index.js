@@ -54,6 +54,13 @@ async function handleRequest(request) {
 			// 特殊处理pageSize请求，无需鉴权
 			return adminHandler.getPageSize();
 		}
+		if (endpoint === 'keys') {
+			return adminHandler.getAllKeys(request);
+		} else if (endpoint === 'access-control') {
+			return adminHandler.getAccessControl();
+		} else if (endpoint === 'verify-guest') {
+			return adminHandler.verifyGuest(request);
+		}
 		return adminHandler.handleAdminAPI(request, endpoint);
 	}
 
@@ -66,18 +73,6 @@ async function handleRequest(request) {
 	return new Response(mainHtmlContent, {
 		headers: { 'Content-Type': 'text/html;charset=UTF-8' },
 	});
-}
-
-// 为每个密钥单独更新检查时间，避免批量请求出现流锁定问题
-async function updateKeyLastCheckTime(key, lastUpdated) {
-	try {
-		await env.db.prepare(`UPDATE keys SET last_updated = ? WHERE key = ?`).bind(lastUpdated, key).run();
-
-		return true;
-	} catch (error) {
-		console.error(`更新密钥 ${key} 时间失败:`, error);
-		return false;
-	}
 }
 
 // 主界面的HTML内容
