@@ -1,9 +1,10 @@
-import keysDao from '../dao/keysDao';
-
-// 获取所有密钥
-export async function getAllKeys() {
+/**
+ * 获取所有密钥
+ * @returns
+ */
+export async function getKeys() {
 	try {
-		const result = await keysDao.getAllKeys();
+		const result = await env.db.prepare(`SELECT key, balance, added, last_updated as lastUpdated FROM keys ORDER BY balance DESC`).all();
 		return result.results || [];
 	} catch (error) {
 		console.error('获取密钥时出错:', error);
@@ -19,7 +20,11 @@ export async function getAllKeys() {
  */
 export async function addKey(key, balance = 0) {
 	try {
-		await keysDao.addKey(key, balance);
+		const now = new Date().toISOString();
+		await env.db
+			.prepare(`INSERT OR REPLACE INTO keys (key, balance, added, last_updated) VALUES (?, ?, ?, ?)`)
+			.bind(key, balance, now, null)
+			.run();
 		return true;
 	} catch (error) {
 		console.error(`添加密钥 ${key} 时出错:`, error);
@@ -34,7 +39,16 @@ export async function addKey(key, balance = 0) {
  */
 export async function addKeys(keys, balance = 0) {
 	try {
-		await keysDao.addKeys(keys, balance);
+		const now = new Date().toISOString();
+		const batch = [];
+
+		for (const key of keys) {
+			batch.push(
+				env.db.prepare(`INSERT OR REPLACE INTO keys (key, balance, added, last_updated) VALUES (?, ?, ?, ?)`).bind(key, balance, now, null)
+			);
+		}
+
+		await env.db.batch(batch);
 		return true;
 	} catch (error) {
 		console.error('批量添加密钥时出错:', error);
@@ -49,7 +63,7 @@ export async function addKeys(keys, balance = 0) {
  */
 export async function deleteKey(key) {
 	try {
-		await keysDao.deleteKey(key);
+		await env.db.prepare(`DELETE FROM keys WHERE key = ?`).bind(key).run();
 		return true;
 	} catch (error) {
 		console.error(`删除密钥 ${key} 时出错:`, error);
@@ -131,7 +145,7 @@ export async function checkKeyValidity(key) {
 export async function updateAllKeyBalances() {
 	try {
 		// 获取所有密钥
-		const keys = await getAllKeys();
+		const keys = await getKeys();
 
 		if (keys.length === 0) {
 			return {
@@ -230,7 +244,7 @@ export async function updateKeyLastCheckTime(key, lastUpdated) {
 }
 
 export default {
-	getAllKeys,
+	getKeys: getKeys,
 	addKey,
 	addKeys,
 	deleteKey,

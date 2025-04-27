@@ -1,0 +1,2237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<title>硅基API Key聚合管理系统</title>
+	<link rel="icon" type="image/png" href="https://imgbed.killerbest.com/file/1742260658545_siliconcloud-color.png"/>
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+		body {
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #f0f5fb, #c0d3ee);
+			font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			color: #333;
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+			-webkit-overflow-scrolling: touch;
+		}
+		.container {
+			max-width: 1200px;
+			background-color: #fff;
+			margin: 10px auto;
+			padding: 30px;
+			border-radius: 16px;
+			box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			overflow-y: auto;
+			height: calc(100vh - 40px);
+			-webkit-overflow-scrolling: touch;
+		}
+		@media (max-width: 840px) {
+			.container {
+				margin: 20px;
+				padding: 20px;
+			}
+		}
+		.header {
+			text-align: center;
+			margin-bottom: 40px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+		.logo {
+			width: 80px;
+			height: 80px;
+			margin: 0 auto 15px;
+			border-radius: 15px;
+			box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+			padding: 5px;
+			background: white;
+		}
+		h1 {
+			margin: 0;
+			font-size: 2rem;
+			color: #2c3e50;
+		}
+		.subtitle {
+			color: #7f8c8d;
+			font-size: 1.1rem;
+			margin-top: 10px;
+		}
+
+
+		.keys-container {
+			flex: 1;
+			overflow-y: auto;
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+			gap: 20px;
+			padding: 20px;
+			max-width: 1200px;
+			margin: 0 auto;
+			-webkit-overflow-scrolling: touch;
+			min-height: 390px;
+		}
+
+		.key-item {
+			background: #ffffff;
+			border: 1px solid rgba(225, 232, 240, 0.8);
+			border-radius: 16px;
+			padding: 18px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			transition: all 0.35s cubic-bezier(0.21, 0.6, 0.35, 1);
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+			min-height: 70px;
+			max-height: 80px;
+			position: relative;
+			overflow: hidden;
+			cursor: pointer;
+		}
+
+		.key-item::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 3px;
+			background: linear-gradient(90deg, #3498db, #9b59b6);
+			opacity: 0;
+			transition: opacity 0.3s ease;
+		}
+
+		.key-item:hover {
+			transform: translateY(-4px);
+			border-color: rgba(52, 152, 219, 0.3);
+		}
+
+		.key-item:hover::before {
+			opacity: 1;
+		}
+
+		.key-item::after {
+			content: "复制";
+			position: absolute;
+			top: 50%;
+			left: 40%;
+			transform: translate(-50%, -50%) scale(0.85);
+			background: rgba(52, 152, 219, 0.29);
+			color: white;
+			padding: 8px 20px;
+			border-radius: 30px;
+			font-size: 0.9rem;
+			font-weight: 500;
+			opacity: 0;
+			transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+			pointer-events: none;
+			letter-spacing: 0.6px;
+			backdrop-filter: blur(6px);
+			-webkit-backdrop-filter: blur(6px);
+			z-index: 10;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+			cursor: pointer;
+		}
+
+		.key-item:hover::after {
+			opacity: 1;
+			transform: translate(-50%, -50%) scale(1);
+		}
+
+		.key-text {
+			font-family: 'JetBrains Mono', 'Monaco', 'Consolas', monospace;
+			font-size: 0.9rem;
+			color: #2c3e50;
+			flex: 1;
+			margin-right: 15px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			position: relative;
+			padding-left: 5px;
+			letter-spacing: 0.5px;
+		}
+
+		.key-text::before {
+			content: '';
+			position: absolute;
+			left: -5px;
+			top: 50%;
+			transform: translateY(-50%);
+			width: 3px;
+			height: 60%;
+			background: #e1e8f0;
+			border-radius: 3px;
+			transition: background 0.3s ease;
+		}
+
+		.key-item:hover .key-text::before {
+			background:rgb(86, 181, 183);
+		}
+
+		.key-balance {
+			padding: 8px 14px;
+			border-radius: 30px;
+			font-weight: 600;
+			font-size: 0.9rem;
+			min-width: 80px;
+			text-align: center;
+			white-space: nowrap;
+			background: linear-gradient(135deg, #defff0, #c6ffe4);
+			color: #10875a;
+			box-shadow: 0 3px 8px rgba(0, 179, 90, 0.12);
+			transition: all 0.3s ease;
+			position: relative;
+			overflow: hidden;
+		}
+
+		.key-balance::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+			transform: translateX(-100%);
+			transition: transform 1s;
+		}
+
+		.key-item:hover .key-balance::before {
+			transform: translateX(100%);
+		}
+
+		.key-balance.low {
+			background: linear-gradient(135deg, #fff6f6, #ffe0e0);
+			color: #e53e3e;
+			box-shadow: 0 3px 8px rgba(229, 62, 62, 0.15);
+		}
+
+		.key-balance.zero {
+			background: linear-gradient(135deg, #ffecec, #ffdbdb);
+			color: #e53e3e;
+			font-weight: 700;
+			box-shadow: 0 3px 8px rgba(229, 62, 62, 0.15);
+		}
+
+		/* 添加时间显示样式 */
+		.key-update-time {
+			position: absolute;
+			bottom: 8px;
+			right: 8px;
+			font-size: 0.7rem;
+			color: #95a5a6;
+			opacity: 0;
+			transition: opacity 0.3s ease;
+			pointer-events: none;
+			text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+			background: rgba(255, 255, 255, 0.8);
+			padding: 2px 6px;
+			border-radius: 4px;
+			backdrop-filter: blur(4px);
+			-webkit-backdrop-filter: blur(4px);
+			z-index: 2;
+		}
+
+		.key-item:hover .key-update-time {
+			opacity: 1;
+		}
+
+		.pagination {
+			display: flex;
+			justify-content: center;
+			margin: 2px 0;
+			align-items: center;
+			min-height: 60px;
+		}
+		.pagination button {
+			background: rgba(52, 152, 219, 0.8);
+			color: white;
+			border: none;
+			border-radius: 50px;
+			padding: 12px 25px;
+			margin: 0 8px;
+			cursor: pointer;
+			transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+			font-weight: 500;
+			box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2);
+			backdrop-filter: blur(4px);
+			-webkit-backdrop-filter: blur(4px);
+			border: 1px solid rgba(255, 255, 255, 0.15);
+			position: relative;
+			overflow: hidden;
+		}
+
+		.pagination button::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.2), rgba(255,255,255,0) 70%);
+			transform: translateX(-100%);
+			transition: transform 0.7s ease;
+		}
+
+		.pagination button:hover {
+			background: rgba(52, 152, 219, 1);
+			transform: translateY(-3px);
+			box-shadow: 0 8px 20px rgba(52, 152, 219, 0.35);
+		}
+
+		.pagination button:hover::before {
+			transform: translateX(100%);
+		}
+
+		.pagination button:disabled {
+			background: rgba(149, 165, 166, 0.8);
+			cursor: not-allowed;
+			transform: none;
+			box-shadow: 0 4px 8px rgba(149, 165, 166, 0.2);
+		}
+
+		.pagination-info {
+			margin: 0 15px;
+			display: flex;
+			align-items: center;
+			font-size: 1.1rem;
+			font-weight: 500;
+			color: #34495e;
+		}
+		.footer {
+			text-align: center;
+			margin-top: 30px;
+			font-size: 0.9rem;
+			color: #7f8c8d;
+		}
+		.counts {
+			display: flex;
+			justify-content: space-around;
+			margin: 5px 0;
+			padding: 5px;
+			background: #f8f9fa;
+			border-radius: 15px;
+			box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+		}
+		.count-item {
+			text-align: center;
+			flex: 1;
+			padding: 5px 15px;
+		}
+		.count-item:not(:last-child) {
+			border-right: 1px solid #e9ecef;
+		}
+		.count-label {
+			font-size: 0.9rem;
+			color: #7f8c8d;
+			margin-bottom: 8px;
+		}
+		.count-value {
+			font-size: 1.5rem;
+			font-weight: 600;
+			color: #e74c3c;
+		}
+
+		.admin-link {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			margin: 20px 0;
+			gap: 15px; /* 按钮之间的间距 */
+		}
+
+		@media (max-width: 768px) {
+			.admin-link {
+				flex-direction: column;
+				gap: 10px;
+			}
+
+			.export-link, .admin-link a {
+				width: 80%;
+				margin: 0;
+				text-align: center;
+			}
+		}
+
+		.admin-link a {
+			color: #3498db;
+			text-decoration: none;
+			font-size: 1rem;
+			padding: 12px 28px;
+			border: 1px solid rgba(52, 152, 219, 0.3);
+			border-radius: 50px;
+			transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+			background: rgba(255, 255, 255, 0.7);
+			backdrop-filter: blur(4px);
+			-webkit-backdrop-filter: blur(4px);
+			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+			position: relative;
+			overflow: hidden;
+			display: inline-block;
+		}
+
+		.admin-link a::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 0;
+			background: linear-gradient(to bottom, rgba(52, 152, 219, 0.8), rgba(52, 152, 219, 0.6));
+			transition: height 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+			z-index: -1;
+		}
+
+		.admin-link a:hover {
+			color: white;
+			border-color: transparent;
+			transform: translateY(-3px);
+			box-shadow: 0 10px 20px rgba(52, 152, 219, 0.25);
+		}
+
+		.admin-link a:hover::before {
+			height: 100%;
+		}
+
+		.admin-link a:active {
+			transform: translateY(-1px);
+		}
+
+		.toast {
+			position: fixed;
+			bottom: 30px;
+			left: 50%;
+			transform: translateX(-50%) translateY(30px);
+			background: rgba(46, 204, 113, 0.95);
+			color: white;
+			padding: 16px 30px;
+			border-radius: 50px;
+			font-size: 0.95rem;
+			font-weight: 500;
+			opacity: 0;
+			transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+			pointer-events: none;
+			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+			z-index: 9999;
+			backdrop-filter: blur(8px);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			letter-spacing: 0.5px;
+		}
+
+		.toast.show {
+			opacity: 1;
+			transform: translateX(-50%) translateY(0);
+		}
+
+		.toast::before {
+			content: '';
+			display: inline-block;
+			width: 18px;
+			height: 18px;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+			background-size: contain;
+			margin-right: 8px;
+			vertical-align: -3px;
+		}
+
+		.toast.error::before {
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z'/%3E%3C/svg%3E");
+		}
+		.empty-state {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			text-align: center;
+			padding: 40px 0;
+			color: #7f8c8d;
+			width: 100%;
+			min-height: 200px;
+			font-size: 1.2rem;
+			/* 添加以下属性确保在grid布局中居中 */
+			grid-column: 1 / -1; /* 跨越所有列 */
+			margin: 0 auto; /* 水平居中 */
+			max-width: 100%;
+			box-sizing: border-box;
+		}
+		/* 针对空状态特别处理keys-container */
+		.keys-container:has(.empty-state) {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+		.loading {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			background-color: rgba(255, 255, 255, 0.8);
+			z-index: 10;
+		}
+
+		.loading > div {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 20px 35px;
+			background-color: white;
+			border-radius: 12px;
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+		}
+
+		.loader {
+			display: inline-block;
+			width: 24px;
+			height: 24px;
+			border: 3px solid rgba(52, 152, 219, 0.2);
+			border-radius: 50%;
+			border-top-color: #3498db;
+			animation: spin 1s ease-in-out infinite;
+			margin-right: 15px;
+			vertical-align: middle;
+		}
+
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}
+
+		/* 优化移动端显示 */
+		@media (max-width: 768px) {
+			.keys-container {
+				grid-template-columns: 1fr;
+				padding: 10px;
+			}
+
+			.key-item {
+				padding: 12px;
+			}
+
+			.key-text {
+				font-size: 0.85rem;
+				max-width: 65%;
+			}
+		}
+		@media (max-width: 640px) {
+			.keys-container {
+				grid-template-columns: 1fr; // 在小屏幕上改回单列
+			}
+		}
+		/* 优化移动端滚动条样式 */
+		.keys-container::-webkit-scrollbar {
+			width: 6px;
+		}
+
+		.keys-container::-webkit-scrollbar-track {
+			background: #f1f1f1;
+			border-radius: 3px;
+		}
+
+		.keys-container::-webkit-scrollbar-thumb {
+			background: #c0d3ee;
+			border-radius: 3px;
+		}
+
+		.keys-container::-webkit-scrollbar-thumb:hover {
+			background: #3498db;
+		}
+
+		@media (max-width: 840px) {
+			.body {
+				overflow-y: auto;
+			}
+
+			.container {
+				margin: 10px;
+				padding: 15px;
+				height: calc(100vh - 20px);
+			}
+		}
+		/* 优化移动端显示 */
+		@media (max-width: 768px) {
+			.keys-container {
+				grid-template-columns: 1fr;
+				padding: 10px;
+				min-height: 350px;
+			}
+
+			.key-item {
+				padding: 12px;
+				min-height: 60px;
+				height: 60px;
+			}
+
+			.key-text {
+				font-size: 0.85rem;
+				max-width: 65%;
+			}
+
+			/* 改善移动端滚动体验 */
+			body, .container {
+				-webkit-overflow-scrolling: touch;
+				touch-action: manipulation;
+			}
+
+			.counts{
+				display: inline;
+			}
+
+			.pagination button{
+				padding: 4px 8px;
+			}
+		}
+
+		/* 悬浮API按钮 */
+		.float-api-btn {
+			position: fixed;
+			right: 25px;
+			bottom: 25px;
+			padding: 14px 24px;
+			background: rgba(52, 152, 219, 0.85);
+			color: white;
+			border-radius: 50px;
+			font-size: 0.95rem;
+			font-weight: 500;
+			box-shadow: 0 6px 18px rgba(52, 152, 219, 0.35);
+			cursor: pointer;
+			transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+			z-index: 900;
+			border: none;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			border: 1px solid rgba(255, 255, 255, 0.15);
+			backdrop-filter: blur(6px);
+			-webkit-backdrop-filter: blur(6px);
+			overflow: hidden;
+			letter-spacing: 0.3px;
+		}
+
+		.float-api-btn::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: linear-gradient(120deg,
+			rgba(255, 255, 255, 0) 0%,
+			rgba(255, 255, 255, 0.1) 10%,
+			rgba(255, 255, 255, 0.25) 20%,
+			rgba(255, 255, 255, 0.1) 30%,
+			rgba(255, 255, 255, 0) 40%);
+			transform: translateX(-100%);
+			transition: transform 1s cubic-bezier(0.19, 1, 0.22, 1);
+		}
+
+		.float-api-btn:hover {
+			transform: translateY(-4px) scale(1.03);
+			box-shadow: 0 10px 25px rgba(52, 152, 219, 0.5);
+			background: rgba(41, 128, 185, 0.9);
+		}
+
+		.float-api-btn:hover::before {
+			transform: translateX(100%);
+		}
+
+		.float-api-btn:active {
+			transform: translateY(-1px) scale(0.98);
+			box-shadow: 0 8px 16px rgba(52, 152, 219, 0.4);
+		}
+
+		.float-api-btn svg {
+			filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+			transition: transform 0.3s ease;
+		}
+
+		.float-api-btn:hover svg {
+			transform: rotate(15deg) scale(1.1);
+		}
+
+
+		.api-modal {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(0, 0, 0, 0.7);
+			backdrop-filter: blur(10px);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			z-index: 1000;
+			opacity: 0;
+			visibility: hidden;
+			transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+		}
+
+		.api-modal.show {
+			opacity: 1;
+			visibility: visible;
+		}
+
+		.api-modal-content {
+			width: 90%;
+			max-width: 750px;
+			max-height: 85vh;
+			background: #fff;
+			border-radius: 20px;
+			box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+			overflow: hidden;
+			transform: scale(0.9);
+			opacity: 0;
+			transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+			display: flex;
+			flex-direction: column;
+		}
+
+		.api-modal.show .api-modal-content {
+			transform: scale(1);
+			opacity: 1;
+		}
+
+		.api-modal-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 24px 30px;
+			background: linear-gradient(135deg, #3498db, #2c3e50);
+			color: white;
+			position: relative;
+			z-index: 5;
+			box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+		}
+
+		.api-modal-header:before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='rgba(255,255,255,0.05)' fill-rule='evenodd'/%3E%3C/svg%3E");
+			z-index: -1;
+		}
+
+		.api-modal-title {
+			font-size: 1.6rem;
+			font-weight: 600;
+			margin: 0;
+			display: flex;
+			align-items: center;
+		}
+
+		.api-modal-title svg {
+			margin-right: 12px;
+			height: 24px;
+			width: 24px;
+		}
+
+		.api-modal-close {
+			width: 36px;
+			height: 36px;
+			background: rgba(255, 255, 255, 0.15);
+			border: none;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: white;
+			font-size: 1.4rem;
+			cursor: pointer;
+			transition: all 0.3s;
+			outline: none;
+		}
+
+		.api-modal-close:hover {
+			background: rgba(255, 255, 255, 0.3);
+			transform: rotate(90deg);
+		}
+
+		.api-modal-body {
+			padding: 30px;
+			max-height: calc(85vh - 80px);
+			overflow-y: auto;
+			overflow-x: hidden;
+		}
+
+		.api-tutorial h3 {
+			color: #2c3e50;
+			margin-top: 30px;
+			margin-bottom: 15px;
+			font-size: 1.3rem;
+			position: relative;
+			padding-left: 15px;
+			font-weight: 600;
+		}
+
+		.api-tutorial h3::before {
+			content: '';
+			position: absolute;
+			left: 0;
+			top: 0;
+			bottom: 0;
+			width: 4px;
+			background: linear-gradient(to bottom, #3498db, #2980b9);
+			border-radius: 4px;
+		}
+
+		.api-tutorial p {
+			color: #34495e;
+			line-height: 1.7;
+			margin-bottom: 18px;
+			font-size: 1.02rem;
+		}
+
+		.code-block {
+			margin: 25px 0;
+			border-radius: 12px;
+			overflow: hidden;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+			background: #f8f9fa;
+		}
+
+		.code-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			background: #e9ecef;
+			padding: 12px 20px;
+			border-bottom: 1px solid #dee2e6;
+		}
+
+		.code-header span {
+			font-size: 0.9rem;
+			color: #495057;
+			font-weight: 500;
+		}
+
+		.copy-btn {
+			background: rgba(255, 255, 255, 0.7);
+			border: none;
+			border-radius: 4px;
+			padding: 6px 12px;
+			font-size: 0.85rem;
+			color: #3498db;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			display: flex;
+			align-items: center;
+			gap: 5px;
+		}
+
+		.copy-btn::before {
+			content: '';
+			display: inline-block;
+			width: 14px;
+			height: 14px;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233498db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='2' ry='2'%3E%3C/rect%3E%3Cpath d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'%3E%3C/path%3E%3C/svg%3E");
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+		}
+
+		.copy-btn:hover {
+			background: rgba(255, 255, 255, 0.9);
+			color: #2980b9;
+			transform: translateY(-1px);
+		}
+
+		.copy-btn.copied {
+			background: #2ecc71;
+			color: white;
+		}
+
+		.copy-btn.copied::before {
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+		}
+
+		.api-code {
+			background: #282c34;
+			color: #abb2bf;
+			margin: 0;
+			padding: 20px;
+			border-radius: 0;
+			font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace;
+			font-size: 0.9rem;
+			line-height: 1.6;
+			overflow-x: auto;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+
+		.api-code .comment {
+			color: #98c379;
+			opacity: 0.8;
+		}
+
+		.api-code .keyword {
+			color: #c678dd;
+		}
+
+		.api-code .string {
+			color: #e5c07b;
+		}
+
+		.api-tutorial .contact-info {
+			background: linear-gradient(135deg, #e7f5fd, #d1e8f8);
+			padding: 20px;
+			border-radius: 12px;
+			border: 1px solid #bbd8ed;
+			margin-top: 25px;
+			margin-bottom: 25px;
+			text-align: center;
+			color: #2c3e50;
+			font-weight: 500;
+			box-shadow: 0 4px 10px rgba(41, 128, 185, 0.1);
+		}
+
+		.api-tutorial .contact-info a {
+			color: #3498db;
+			text-decoration: none;
+			font-weight: 600;
+			position: relative;
+			display: inline-block;
+			padding-bottom: 2px;
+		}
+
+		.api-tutorial .contact-info a::after {
+			content: '';
+			position: absolute;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			height: 2px;
+			background: #3498db;
+			transform: scaleX(0);
+			transform-origin: right;
+			transition: transform 0.3s ease;
+		}
+
+		.api-tutorial .contact-info a:hover::after {
+			transform: scaleX(1);
+			transform-origin: left;
+		}
+
+		.api-tutorial ul {
+			padding-left: 20px;
+			margin: 20px 0;
+		}
+
+		.api-tutorial li {
+			margin-bottom: 10px;
+			position: relative;
+			padding-left: 5px;
+			line-height: 1.6;
+			color: #34495e;
+		}
+
+		.api-tutorial li::marker {
+			color: #3498db;
+			font-weight: bold;
+		}
+
+		/* 添加自定义滚动条 */
+		.api-modal-body::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		.api-modal-body::-webkit-scrollbar-track {
+			background: #f1f1f1;
+			border-radius: 6px;
+		}
+
+		.api-modal-body::-webkit-scrollbar-thumb {
+			background: #cbd5e0;
+			border-radius: 6px;
+		}
+
+		.api-modal-body::-webkit-scrollbar-thumb:hover {
+			background: #a0aec0;
+		}
+
+		/* 改善移动端适配 */
+		@media (max-width: 768px) {
+			.api-modal-content {
+				width: 95%;
+				max-height: 90vh;
+			}
+
+			.api-modal-header {
+				padding: 16px 20px;
+			}
+
+			.api-modal-body {
+				padding: 20px;
+				max-height: calc(90vh - 60px);
+			}
+
+			.api-tutorial h3 {
+				font-size: 1.2rem;
+			}
+
+			.api-tutorial p {
+				font-size: 0.95rem;
+			}
+
+			.api-code {
+				font-size: 0.75rem;
+				padding: 15px;
+			}
+
+			.code-header {
+				padding: 10px 15px;
+			}
+
+			.copy-btn {
+				padding: 4px 8px;
+				font-size: 0.8rem;
+			}
+
+			.float-api-btn {
+				right: 20px;
+				bottom: 20px;
+				padding: 12px 18px;
+				font-size: 0.9rem;
+			}
+		}
+
+		/* 复制按钮 */
+		.copy-btn {
+			background: #e9f0f7;
+			border: none;
+			border-radius: 4px;
+			padding: 5px 10px;
+			font-size: 0.8rem;
+			color: #3498db;
+			cursor: pointer;
+			margin-left: 10px;
+			transition: all 0.2s;
+		}
+
+		.copy-btn:hover {
+			background: #d4e6f7;
+		}
+
+		.copy-btn:active {
+			transform: scale(0.95);
+		}
+
+		.code-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 8px;
+		}
+
+		.code-header span {
+			color: #7f8c8d;
+			font-size: 0.9rem;
+		}
+
+		/* 复制成功动画 */
+		.copy-success {
+			position: relative;
+		}
+
+		.copy-success::after {
+			content: '✓';
+			position: absolute;
+			top: 50%;
+			left: 40%;
+			transform: translate(-50%, -50%);
+			color: #fff;
+			font-size: 1.5rem;
+			font-weight: bold;
+			opacity: 0;
+			animation: successPop 1.5s ease forwards;
+		}
+
+		@keyframes successPop {
+			0% {
+				opacity: 0;
+				transform: translate(-50%, -50%) scale(0.5);
+			}
+			15% {
+				opacity: 1;
+				transform: translate(-50%, -50%) scale(1.2);
+			}
+			30% {
+				transform: translate(-50%, -50%) scale(1);
+			}
+			70% {
+				opacity: 1;
+			}
+			100% {
+				opacity: 0;
+			}
+		}
+
+		/* 响应式调整 */
+		@media (max-width: 768px) {
+			.keys-container {
+				grid-template-columns: 1fr;
+				padding: 15px;
+				gap: 16px;
+			}
+
+			.key-item {
+				padding: 16px;
+				min-height: 65px;
+			}
+
+			.key-balance {
+				padding: 6px 12px;
+				min-width: 70px;
+			}
+		}
+
+		/* 进度条样式增强 */
+		.progress-stats {
+			display: flex;
+			justify-content: space-between;
+			font-size: 0.85rem;
+			color: #718096;
+		}
+
+		.progress-details {
+			margin-top: 10px;
+			font-size: 0.8rem;
+			color: #718096;
+			display: flex;
+			justify-content: space-between;
+		}
+
+		.progress-speed {
+			color: #3498db;
+		}
+
+		.progress-eta {
+			color: #e67e22;
+		}
+
+
+		/* 余额多样化显示 */
+		.key-balance.normal {
+			background: linear-gradient(135deg, #defff0, #c6ffe4);
+			color: #10875a;
+			box-shadow: 0 3px 8px rgba(0, 179, 90, 0.12);
+		}
+
+		.key-balance.medium {
+			background: linear-gradient(135deg, #f3e7ff, #e4d0ff);
+			color: #6b10c4;
+			box-shadow: 0 3px 8px rgba(107, 16, 196, 0.15);
+		}
+
+		.key-balance.high {
+			background: linear-gradient(135deg, #fff8e0, #ffe7a0);
+			color: #b7860b;
+			box-shadow: 0 3px 8px rgba(183, 134, 11, 0.25);
+			text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+		}
+
+		.key-balance.low {
+			background: linear-gradient(135deg, #fff3e0, #ffdcaf);
+			color: #d35400;
+			box-shadow: 0 3px 8px rgba(211, 84, 0, 0.15);
+		}
+
+		.key-balance.zero {
+			background: linear-gradient(135deg, #ffecec, #ffcbcb);
+			color: #e53e3e;
+			font-weight: 700;
+			box-shadow: 0 3px 8px rgba(229, 62, 62, 0.15);
+		}
+
+		/* 导出按钮样式 */
+		.export-link {
+			color: #27ae60;
+			text-decoration: none;
+			font-size: 1rem;
+			padding: 12px 28px;
+			border: 1px solid rgba(39, 174, 96, 0.3);
+			border-radius: 50px;
+			transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+			background: rgba(236, 255, 244, 0.7);
+			backdrop-filter: blur(4px);
+			-webkit-backdrop-filter: blur(4px);
+			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+			position: relative;
+			overflow: hidden;
+			display: inline-block;
+			margin-left: 15px;
+		}
+
+		.export-link::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 0;
+			background: linear-gradient(to bottom, rgba(39, 174, 96, 0.8), rgba(39, 174, 96, 0.6));
+			transition: height 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+			z-index: -1;
+		}
+
+		.export-link:hover {
+			color: white;
+			border-color: transparent;
+			transform: translateY(-3px);
+			box-shadow: 0 10px 20px rgba(39, 174, 96, 0.25);
+		}
+
+		.export-link:hover::before {
+			height: 100%;
+		}
+
+		.export-link:active {
+			transform: translateY(-1px);
+		}
+
+
+		/* 认证弹窗样式 */
+		.api-modal-footer {
+			padding: 15px 20px;
+			border-top: 1px solid #e9ecef;
+			display: flex;
+			justify-content: flex-end;
+			gap: 10px;
+		}
+
+		#guest-password {
+			width: 100%;
+			padding: 12px;
+			border-radius: 8px;
+			border: 1px solid #ddd;
+			font-size: 16px;
+			transition: border-color 0.2s, box-shadow 0.2s;
+			margin-top: 10px;
+		}
+
+		#guest-password:focus {
+			border-color: #3498db;
+			box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+			outline: none;
+		}
+
+		#auth-error {
+			color: #e74c3c;
+			margin-top: 8px;
+			font-size: 0.9rem;
+			font-weight: 500;
+			display: none;
+		}
+
+		#verify-guest-btn {
+			background: #3498db;
+			color: white;
+			border: none;
+			border-radius: 6px;
+			padding: 10px 20px;
+			font-size: 15px;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		#verify-guest-btn:hover {
+			background: #2980b9;
+			transform: translateY(-2px);
+		}
+
+		#verify-guest-btn:active {
+			transform: translateY(0);
+		}
+
+		/* 版权样式 */
+		#copyright-text {
+			position: fixed;
+			bottom: 10px;
+			left: 50%;
+			transform: translateX(-50%);
+			font-size: 0.85rem;
+			color: rgba(120, 120, 120, 0.85);
+			font-weight: 700;
+			text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+			z-index: 9999;
+			pointer-events: none;
+			user-select: none;
+			letter-spacing: 0.5px;
+			opacity: 0.75;
+			transition: opacity 0.3s ease;
+			white-space: nowrap;
+			text-align: center;
+		}
+
+		#copyright-text:hover {
+			opacity: 1;
+		}
+
+		@media (max-width: 768px) {
+			#copyright-text {
+				font-size: 0.75rem;
+				bottom: 8px;
+			}
+		}
+
+		/* 添加GitHub链接样式 */
+		.github-link {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			text-decoration: none;
+			color: #333;
+			background: #f1f1f1;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			padding: 6px 10px;
+			font-size: 0.9rem;
+			margin-right: 10px;
+			transition: all 0.2s;
+			position: absolute;
+			right: 15px;
+			top: 15px;
+		}
+
+		.github-link:hover {
+			background: #333;
+			color: white;
+			border-color: #333;
+		}
+
+		.github-link svg {
+			transition: transform 0.2s;
+		}
+
+		.github-link:hover svg {
+			transform: rotate(360deg);
+		}
+
+		@media (max-width: 768px) {
+			.github-link {
+				position: static;
+				margin: 10px auto;
+				width: fit-content;
+			}
+		}
+
+	</style>
+</head>
+<body>
+<div class="container">
+	<div class="header">
+		<img src="https://imgbed.killerbest.com/file/1742260658545_siliconcloud-color.png" alt="logo" class="logo"/>
+		<h1>硅基流动API Key Sharing</h1>
+		<div class="subtitle">API密钥共享与负载均衡服务</div>
+		<a href="https://github.com/Dr-Ai-0018/Siliconflow-API-Management" target="_blank" class="github-link">
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+			</svg>
+			GitHub
+		</a>
+	</div>
+
+	<div id="keys-container" class="keys-container">
+		<div class="loading">
+			<div>
+				<span class="loader"></span>
+				<span>加载中...</span>
+			</div>
+		</div>
+	</div>
+
+	<div class="pagination">
+		<button id="prev-page" disabled>&laquo; 上一页</button>
+		<div class="pagination-info">
+			<span id="page-info">第 1 页</span>
+		</div>
+		<button id="next-page" disabled>下一页 &raquo;</button>
+	</div>
+
+	<div class="counts">
+		<div class="count-item">
+			<div class="count-label">总API Keys</div>
+			<div id="total-count" class="count-value">0</div>
+		</div>
+		<div class="count-item">
+			<div class="count-label">有效API Keys</div>
+			<div id="valid-count" class="count-value">0</div>
+		</div>
+		<div class="count-item">
+			<div class="count-label">总额度</div>
+			<div id="total-balance" class="count-value">0</div>
+		</div>
+	</div>
+
+	<div class="admin-link">
+		<a href="/admin">管理员入口</a>
+		<button id="export-valid-keys" class="export-link">导出有效密钥</button>
+	</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<div id="auth-modal" class="api-modal">
+	<div class="api-modal-content" style="max-width: 400px;">
+		<div class="api-modal-header">
+			<h3 class="api-modal-title">需要访客认证</h3>
+			<button id="authModalClose" class="api-modal-close">&times;</button>
+		</div>
+		<div class="api-modal-body">
+			<p>此页面受到保护，请输入访客密码继续访问：</p>
+			<div style="margin: 20px 0;">
+				<input type="password" id="guest-password" placeholder="请输入访客密码" style="width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+				<div id="auth-error" style="color: #e74c3c; margin-top: 8px; font-size: 0.9rem; display: none;">密码不正确，请重试</div>
+			</div>
+		</div>
+		<div class="api-modal-footer" style="padding: 15px 20px; text-align: right; display: flex; justify-content: flex-end;">
+			<button id="verify-guest-btn" class="action-button" style="background: #3498db; color: white;">
+				验证
+			</button>
+		</div>
+	</div>
+</div>
+
+<!-- 悬浮API按钮 -->
+<button id="floatApiBtn" class="float-api-btn">
+	<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
+		<polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+	</svg>
+	API 调用文档
+</button>
+
+<!-- API教程弹窗 -->
+<div id="apiModal" class="api-modal">
+	<div class="api-modal-content">
+		<div class="api-modal-header">
+			<h3 class="api-modal-title">API 调用教程</h3>
+			<button id="apiModalClose" class="api-modal-close">&times;</button>
+		</div>
+		<div class="api-modal-body">
+			<div class="api-tutorial">
+				<p>硅基流动API负载均衡服务让您可以通过统一的入口访问基于 API Key 的服务，自动为您选择可用的 API Key，实现负载均衡与高可用。</p>
+
+				<h3>基本使用</h3>
+				<p>调用方式与原始API完全相同，只需将请求地址修改为我们的代理地址，并在请求头中使用您的专属API Key。</p>
+
+				<div>
+					<div class="code-header">
+						<span>示例请求</span>
+						<button class="copy-btn" data-copy=
+							"
+curl -X POST 'https://sili-api.puppetdevz.me/v1/chat/completions' \\
+-H 'Content-Type: application/json' \\
+-H 'Authorization: Bearer your-api-key-here' \\
+-d '{'model': 'Qwen/Qwen2.5-7B-Instruct', 'messages': [{'role': 'user', 'content': '你好'}], 'stream': true}'
+">复制</button>
+					</div>
+
+					<div class="api-code">
+						<span class="comment"># 向负载均衡服务发送请求</span>
+						curl -X POST 'https://sili-api.puppetdevz.me/v1/chat/completions' \\
+						-H 'Content-Type: application/json' \\
+						-H 'Authorization: Bearer <span class="keyword">your-api-key-here</span>' \\
+						-d '{
+						<span class="string">"model"</span>: <span class="string">"Qwen/Qwen2.5-7B-Instruct"</span>,
+						<span class="string">"messages"</span>: [{<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"你好"</span>}],
+						<span class="string">"stream"</span>: true
+						}'
+					</div>
+				</div>
+
+				<h3>支持的端点</h3>
+				<p>我们支持硅基流动的所有API端点，您只需将原始API地址替换为我们的代理地址即可：</p>
+
+				<div>
+					<div class="code-header">
+						<span>端点替换示例</span>
+						<button class="copy-btn" data-copy="# 原始API地址
+  https://api.siliconflow.cn/v1/...
+
+  # 替换为
+  https://sili-api.puppetdevz.me/v1/...">复制</button>
+					</div>
+					<div class="api-code">
+						<span class="comment"># 原始API地址</span>
+						https://api.siliconflow.cn/v1/...
+
+						<span class="comment"># 替换为</span>
+						https://sili-api.puppetdevz.me/v1/...
+					</div>
+				</div>
+
+				<h3>获取访问授权</h3>
+				<p>要使用该服务，您需要申请专属的API Key。请联系管理员获取访问权限：</p>
+
+				<div class="contact-info">
+					管理员邮箱：<a href="mailto:admin@puppetdevz.me">admin@puppetdevz.me</a>
+				</div>
+
+				<h3>主要优势</h3>
+				<ul>
+					<li>自动负载均衡 - 系统自动选择有效的API Key</li>
+					<li>提高可用性 - 单个Key故障不影响整体服务</li>
+					<li>简化管理 - 无需手动切换API Key</li>
+					<li>统一入口 - 使用一个API Key访问所有服务</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div id="copyright-text">版权所有 &copy; 2025 KillerBest</div>
+
+<script>
+	// 全局变量
+	let allKeys = [];
+	let currentPage = 1;
+	let pageSize = 12;
+	let authToken = localStorage.getItem('guestToken') || '';
+	let accessControlMode = 'open';
+
+	// DOM元素
+	const keysContainer = document.getElementById('keys-container');
+	const prevPageBtn = document.getElementById('prev-page');
+	const nextPageBtn = document.getElementById('next-page');
+	const pageInfo = document.getElementById('page-info');
+	const totalCountEl = document.getElementById('total-count');
+	const validCountEl = document.getElementById('valid-count');
+	const totalBalanceEl = document.getElementById('total-balance');
+	const toast = document.getElementById('toast');
+
+	// API按钮和弹窗
+	const floatApiBtn = document.getElementById('floatApiBtn');
+	const apiModal = document.getElementById('apiModal');
+	const apiModalClose = document.getElementById('apiModalClose');
+
+	// 显示API弹窗
+	floatApiBtn.addEventListener('click', () => {
+		apiModal.classList.add('show');
+		document.body.style.overflow = 'hidden'; // 防止背景滚动
+
+		// 添加媒体查询适配动画
+		if (window.innerWidth <= 768) {
+			document.querySelector('.api-modal-content').style.transform = 'translateY(0)';
+		}
+	});
+
+	// 关闭API弹窗
+	apiModalClose.addEventListener('click', () => {
+		apiModal.classList.remove('show');
+		document.body.style.overflow = ''; // 恢复滚动
+	});
+
+	// 点击弹窗外部关闭
+	apiModal.addEventListener('click', (e) => {
+		if (e.target === apiModal) {
+			apiModal.classList.remove('show');
+			document.body.style.overflow = '';
+		}
+	});
+
+	// 代码复制功能
+	document.querySelectorAll('.copy-btn').forEach(btn => {
+		btn.addEventListener('click', function() {
+			const codeText = this.getAttribute('data-copy');
+
+			// 使用异步剪贴板API
+			navigator.clipboard.writeText(codeText)
+				.then(() => {
+					// 成功复制后的视觉反馈
+					this.classList.add('copied');
+					this.innerText = '已复制';
+
+					// 恢复原始状态
+					setTimeout(() => {
+						this.classList.remove('copied');
+						this.innerHTML = '复制代码';
+						this.insertAdjacentHTML('afterbegin', '<span></span>');
+					}, 2000);
+
+					// 显示全局通知
+					showToast('代码已复制到剪贴板');
+				})
+				.catch(err => {
+					console.error('复制失败:', err);
+					showToast('复制失败，请手动复制', true);
+				});
+		});
+	});
+
+	// 从服务器加载密钥
+	async function loadKeys(retryCount = 3, retryDelay = 1500) {
+		try {
+			// 显示加载状态
+			if (!keysContainer.querySelector('.loading')) {
+				keysContainer.innerHTML = `
+            <div class="loading">
+              <div>
+                <span class="loader"></span>
+                <span>加载中...</span>
+              </div>
+            </div>
+          `;
+        }
+
+        // 构建请求头，添加认证信息
+        const headers = {};
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+
+        const response = await fetch('/admin/api/keys', { headers });
+
+        // 处理未认证的情况
+        if (response.status === 401) {
+          const result = await response.json();
+          if (result.requireAuth) {
+            // 清除失效的token
+            localStorage.removeItem('guestToken');
+            authToken = '';
+
+            // 根据访问控制模式显示不同内容
+            if (result.accessControl === 'private') {
+              keysContainer.innerHTML = '<div class="empty-state">此页面仅限管理员访问<br><a href="/admin" style="color: #3498db;">前往管理员登录</a></div>';
+            } else {
+              showAuthModal();
+            }
+            return;
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(`服务器响应错误: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          allKeys = result.data;
+          pageSize = await getPageSize();
+          renderKeys();
+          updateCountsWithAnimation();
+        } else {
+          throw new Error(result.message || '加载密钥失败');
+        }
+      } catch (error) {
+        console.error('加载密钥时出错:', error);
+
+        if (retryCount > 0) {
+          // 显示重试消息
+          keysContainer.innerHTML = `
+            <div class="empty-state">
+              <p>加载失败: ${error.message}</p>
+              <p>正在重试... (剩余 ${retryCount} 次)</p>
+              <div class="loader" style="display: inline-block; margin-top: 10px; border-top-color: #3498db;"></div>
+            </div>
+          `;
+
+          // 延迟后重试
+          setTimeout(() => loadKeys(retryCount - 1, retryDelay * 1.5), retryDelay);
+        } else {
+          // 所有重试都失败了，显示最终错误并提供刷新按钮
+          keysContainer.innerHTML = `
+            <div class="empty-state">
+              <p>加载失败: ${error.message}</p>
+              <button id="retry-button" style="margin-top: 15px; background: #3498db; color: white; border: none; border-radius: 4px; padding: 10px 20px; cursor: pointer;">
+                刷新重试
+              </button>
+            </div>
+          `;
+
+          // 为刷新按钮添加事件监听器
+          setTimeout(() => {
+            const retryButton = document.getElementById('retry-button');
+            if (retryButton) {
+              retryButton.addEventListener('click', () => {
+                // 显示加载状态
+                keysContainer.innerHTML = `
+                  <div class="loading">
+                    <div>
+                      <span class="loader"></span>
+                      <span>加载中...</span>
+                    </div>
+                  </div>
+                `;
+
+                // 短暂延迟后重新加载
+                setTimeout(() => loadKeys(3, 1500), 300);
+              });
+            }
+          }, 0);
+        }
+      }
+    }
+
+    // 获取页面大小配置
+    async function getPageSize(retryCount = 2) {
+      try {
+        const response = await fetch('/admin/api/pageSize');
+        if (!response.ok) {
+          throw new Error(`服务器响应错误: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          return parseInt(result.data) || 12; // 确保有默认值
+        } else {
+          throw new Error(result.message || '无法获取页面配置');
+        }
+      } catch (error) {
+        console.warn('加载页面大小配置时出错:', error);
+
+        // 尝试重试
+        if (retryCount > 0) {
+          console.log(`尝试重新获取页面大小... 剩余尝试次数: ${retryCount}`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 延迟1秒
+          return getPageSize(retryCount - 1);
+        }
+
+        // 返回默认值
+        return 12;
+      }
+    }
+
+    // 渲染当前页面的密钥
+    function renderKeys() {
+      // 格式化日期
+      function formatDate(dateString) {
+        try {
+          const date = new Date(dateString);
+          // 检查日期是否有效
+          if (isNaN(date.getTime())) {
+            return '时间未知';
+          }
+          // 指定使用24小时制格式
+          return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false // 使用24小时制
+          });
+        } catch (e) {
+          console.error('日期格式化错误:', e);
+          return '时间未知';
+        }
+      }
+
+      if (allKeys.length === 0) {
+          keysContainer.innerHTML = '<div class="empty-state">暂无API Keys</div>';
+          prevPageBtn.disabled = true;
+          nextPageBtn.disabled = true;
+          pageInfo.textContent = '第 0 页';
+          return;
+      }
+
+      // 按余额从高到低排序
+      const sortedKeys = [...allKeys].sort((a, b) => {
+        // 转换为数字进行比较，确保是数值比较
+        const balanceA = parseFloat(a.balance) || 0;
+        const balanceB = parseFloat(b.balance) || 0;
+        return balanceB - balanceA; // 从高到低排序
+      });
+
+      // 计算分页
+      const totalPages = Math.ceil(sortedKeys.length / pageSize);
+      if (currentPage > totalPages) {
+          currentPage = totalPages;
+      }
+
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = Math.min(startIndex + pageSize, sortedKeys.length);
+      const currentKeys = sortedKeys.slice(startIndex, endIndex);
+
+      // 更新分页控件
+      prevPageBtn.disabled = currentPage === 1;
+      nextPageBtn.disabled = currentPage === totalPages;
+      pageInfo.textContent = `第 ${currentPage} / ${totalPages} 页`;
+
+      // 渲染密钥
+      let html = '';
+      for (const keyObj of currentKeys) {
+          // 省略显示密钥：保留前10位和后5位，中间用...替代
+          const displayKey = keyObj.key.length > 20
+          ? `${keyObj.key.substring(0, 10)}...${keyObj.key.substring(keyObj.key.length - 5)}`
+          : keyObj.key;
+
+          // 根据余额确定类名和显示文本
+          let balanceClass = '';
+          let balanceText = '';
+          const balance = parseFloat(keyObj.balance) || 0;
+
+          if (balance <= 0) {
+              balanceClass = 'zero';
+              balanceText = '无效';
+          } else if (balance > 0 && balance <= 7) {
+              balanceClass = 'low';
+              balanceText = balance;
+          } else if (balance > 7 && balance <= 14) {
+              balanceClass = 'normal';
+              balanceText = balance;
+          } else if (balance > 14 && balance <= 100) {
+              balanceClass = 'medium';
+              balanceText = balance;
+          } else if (balance > 100) {
+              balanceClass = 'high';
+              balanceText = balance;
+          }
+
+          html += `
+            <div class="key-item" onclick="copyKey('${keyObj.key}')" title="${keyObj.key}">
+                <div class="key-text">${displayKey}</div>
+                <div class="key-balance ${balanceClass}">${balanceText}</div>
+                <div class="key-update-time">
+                  ${keyObj.lastUpdated ? '更新于 ' + formatDate(keyObj.lastUpdated) : '未更新'}
+                </div>
+            </div>
+          `;
+
+      }
+
+      keysContainer.innerHTML = html;
+    }
+
+    // 更新计数显示
+    function updateCountsWithAnimation() {
+      // 获取实际数据
+      const total = allKeys.length;
+      const valid = allKeys.filter(k => k.balance > 0).length;
+      const totalBalance = allKeys.reduce((sum, key) => {
+        return sum + (parseFloat(key.balance) || 0);
+      }, 0).toFixed(2);
+
+      // 为三个数字添加动画
+      animateCounter(totalCountEl, total);
+      animateCounter(validCountEl, valid);
+      animateCounter(document.getElementById('total-balance'), totalBalance, '￥', true);
+    }
+
+    // 页面加载时初始化数字显示样式
+    document.addEventListener('DOMContentLoaded', () => {
+      // 确保初始状态为红色小字体
+      const countValues = document.querySelectorAll('.count-value');
+      countValues.forEach(el => {
+        el.style.fontSize = '1.5rem';
+        el.style.fontWeight = '600';
+        el.style.color = '#e74c3c';
+      });
+
+      // 初始加载时首先检查访问控制状态，而不是直接加载密钥
+      checkAccessControl();
+
+      // 访客验证按钮事件
+      document.getElementById('verify-guest-btn').addEventListener('click', verifyGuestPassword);
+
+      // 关闭认证弹窗按钮
+      document.getElementById('authModalClose').addEventListener('click', () => {
+        document.getElementById('auth-modal').classList.remove('show');
+
+        // 如果是受限模式且没有token，确保显示认证按钮
+        if (accessControlMode === 'restricted' && !authToken) {
+          keysContainer.innerHTML = `
+            <div class="empty-state">
+              <p>需要访客密码才能查看内容</p>
+              <button id="show-auth-button" style="margin-top: 20px; background: #3498db; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 14px; transition: all 0.3s ease;">
+                点击认证
+              </button>
+            </div>
+          `;
+
+          // 添加认证按钮点击事件
+          setTimeout(() => {
+            const authButton = document.getElementById('show-auth-button');
+            if (authButton) {
+              authButton.addEventListener('click', showAuthModal);
+            }
+          }, 0);
+        }
+      });
+
+      // 密码输入框回车事件
+      document.getElementById('guest-password').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          verifyGuestPassword();
+        }
+      });
+
+      // 添加导出按钮事件监听
+      const exportBtn = document.getElementById('export-valid-keys');
+      if (exportBtn) {
+          exportBtn.addEventListener('click', exportValidKeys);
+      }
+
+    });
+
+    // 数字动画函数
+    function animateCounter(element, targetValue, prefix = '', isBalance = false) {
+      // 确保目标是数字
+      const target = parseFloat(targetValue) || 0;
+      const isInteger = !isBalance && Number.isInteger(target);
+      let current = 0;
+
+      // 动画持续时间和帧率
+      const duration = 5000; // 5秒动画
+      const framesPerSecond = 60;
+      const frames = duration / 1000 * framesPerSecond;
+
+      // 使用easeOutExpo缓动函数以获得非线性的动画效果
+      const easeOutExpo = t => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+
+      // 停止现有的动画
+      if (element._animationFrame) {
+        cancelAnimationFrame(element._animationFrame);
+      }
+
+      const startTime = performance.now();
+
+      // 动画函数
+      const animate = (timestamp) => {
+        // 计算已经过去的时间比例
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // 使用缓动函数
+        const easedProgress = easeOutExpo(progress);
+
+        // 计算当前值
+        current = easedProgress * target;
+
+        // 格式化
+        let displayValue = prefix;
+        if (isInteger) {
+          displayValue += Math.round(current);
+        } else if (isBalance) {
+          displayValue += current.toFixed(2);
+        } else {
+          displayValue += Math.round(current * 100) / 100;
+        }
+
+        // 根据数值大小设置样式
+        const numValue = parseFloat(current);
+
+        // 计算字体大小: 1-9: 1.5rem, 10-99: 1.8rem, 100-999: 2.2rem, 1000+: 2.8rem
+        let fontSize = '1.5rem';
+        if (numValue >= 1000) {
+          fontSize = '2.8rem';
+        } else if (numValue >= 100) {
+          fontSize = '2.2rem';
+        } else if (numValue >= 10) {
+          fontSize = '1.8rem';
+        }
+
+        // 计算颜色: 个位数红色, 十位数黑色, 百位数绿色, 千位数及以上彩色
+        let color = '#e74c3c'; // 红色(个位数)
+
+        if (numValue >= 1000) {
+          // 千位数及以上: 渐变彩色
+          const hue = (numValue % 360) || 50;
+          color = `linear-gradient(135deg, purple, #3498db, #f39c12)`;
+          element.style.webkitBackgroundClip = 'text';
+          element.style.backgroundClip = 'text';
+          element.style.color = 'transparent';
+          element.style.backgroundImage = color;
+          element.style.textShadow = '0 0 8px rgba(255,255,255,0.6)';
+        } else if (numValue >= 120) {
+          // 120以上: 完全绿色
+          color = '#27ae60';
+          element.style.backgroundImage = 'none';
+          element.style.color = color;
+          element.style.textShadow = 'none';
+        } else if (numValue >= 80) {
+          // 80-120: 从黑到绿的渐变 - 压缩到这个区间
+          const greenIntensity = Math.min((numValue - 80) / 40, 1); // 40是区间宽度(120-80)
+          const red = Math.round(44 - (44 * greenIntensity)); // 44->0
+          const green = Math.round(44 + (130 * greenIntensity)); // 44->174
+          const blue = Math.round(80 - (20 * greenIntensity)); // 80->60
+          color = `rgb(${red}, ${green}, ${blue})`;
+          element.style.backgroundImage = 'none';
+          element.style.color = color;
+          element.style.textShadow = 'none';
+        } else if (numValue >= 10) {
+          // 十位数: 从红到黑的渐变
+          const blackIntensity = Math.min((numValue - 10) / 70, 1); // 压缩到10-80区间
+          const red = Math.round(231 - (231 - 44) * blackIntensity);
+          const green = Math.round(76 - (76 - 44) * blackIntensity);
+          const blue = Math.round(60 - (60 - 80) * blackIntensity);
+          color = `rgb(${red}, ${green}, ${blue})`;
+          element.style.backgroundImage = 'none';
+          element.style.color = color;
+          element.style.textShadow = 'none';
+        } else {
+          // 个位数: 红色
+          element.style.backgroundImage = 'none';
+          element.style.color = '#e74c3c';
+          element.style.textShadow = 'none';
+        }
+
+        // 应用样式
+        element.style.fontSize = fontSize;
+        element.style.fontWeight = numValue >= 100 ? '700' : '600';
+        element.style.transition = 'all 0.2s ease';
+
+        // 更新显示的值
+        element.textContent = displayValue;
+
+        // 判断是否继续动画
+        if (progress < 1) {
+          element._animationFrame = requestAnimationFrame(animate);
+        }
+      };
+
+      // 启动动画
+      element._animationFrame = requestAnimationFrame(animate);
+    }
+
+    // 导出有效密钥功能
+    function exportValidKeys() {
+        try {
+            // 过滤出有效密钥（余额大于0且没有错误）
+            const validKeys = allKeys.filter(k => parseFloat(k.balance) > 0 && !k.lastError).map(k => k.key);
+
+            if (validKeys.length === 0) {
+            showToast('没有找到有效密钥', true);
+            return;
+            }
+
+            // 用逗号拼接所有有效密钥
+            const keysText = validKeys.join(',');
+
+            // 创建Blob对象
+            const blob = new Blob([keysText], { type: 'text/plain' });
+
+            // 创建下载链接
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            // 设置文件名（使用当前日期时间）
+            const date = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+            a.download = `siliconflow-valid-keys-${date}.txt`;
+
+            // 模拟点击下载
+            document.body.appendChild(a);
+            a.click();
+
+            // 清理
+            setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            }, 100);
+
+            showToast(`成功导出 ${validKeys.length} 个有效密钥`);
+        } catch (error) {
+            console.error('导出密钥时出错:', error);
+            showToast('导出失败: ' + error.message, true);
+        }
+    }
+
+    // 将密钥复制到剪贴板
+    function copyKey(key) {
+      navigator.clipboard.writeText(key)
+        .then(() => {
+          // 找到被点击的元素
+          const elements = document.querySelectorAll('.key-item');
+          let targetElement;
+
+          elements.forEach(el => {
+            if (el.getAttribute('title') === key) {
+              targetElement = el;
+            }
+          });
+
+          if (targetElement) {
+            // 添加复制成功动画类
+            targetElement.classList.add('copy-success');
+
+            // 显示通知
+            showToast('已复制到剪贴板');
+
+            // 一段时间后移除动画类
+            setTimeout(() => {
+              targetElement.classList.remove('copy-success');
+            }, 1500);
+          } else {
+            showToast('已复制到剪贴板');
+          }
+        })
+        .catch(err => {
+          console.error('复制失败: ', err);
+          showToast('复制失败', true);
+        });
+    }
+
+    // 显示通知消息
+    function showToast(message, isError = false) {
+      toast.textContent = message;
+      toast.style.background = isError ? 'rgba(231, 76, 60, 0.95)' : 'rgba(46, 204, 113, 0.95)';
+
+      // 添加/移除错误类以显示正确的图标
+      if (isError) {
+        toast.classList.add('error');
+      } else {
+        toast.classList.remove('error');
+      }
+
+      toast.classList.add('show');
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // 显示错误消息
+    function showError(message) {
+      keysContainer.innerHTML = `<div class="empty-state">${message}</div>`;
+    }
+
+    // 处理分页
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderKeys();
+      }
+    });
+
+    nextPageBtn.addEventListener('click', () => {
+      const totalPages = Math.ceil(allKeys.length / pageSize);
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderKeys();
+      }
+    });
+
+    // 检查访问控制状态
+    async function checkAccessControl() {
+      try {
+        // 显示正在检查权限的状态
+        keysContainer.innerHTML = `
+          <div class="loading">
+            <div>
+              <span class="loader"></span>
+              <span>检查访问权限...</span>
+            </div>
+          </div>
+        `;
+
+        const response = await fetch('/admin/api/access-control');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            accessControlMode = data.data.accessControl;
+
+            // 根据访问控制模式执行不同操作
+            if (accessControlMode === 'open') {
+              // 完全开放，直接加载
+              loadKeys();
+            } else if (accessControlMode === 'private') {
+              // 完全私有，显示管理员登录
+              keysContainer.innerHTML = '<div class="empty-state">此页面仅限管理员访问<br><a href="/admin" style="color: #3498db;">前往管理员登录</a></div>';
+            } else if (accessControlMode === 'restricted') {
+              // 部分开放，检查是否已有token
+              if (authToken) {
+                // 尝试使用现有token加载
+                loadKeys();
+              } else {
+                // 显示访客认证弹窗
+                showAuthModal();
+                // 清空加载中显示，同时添加一个认证按钮
+                keysContainer.innerHTML = `
+                  <div class="empty-state">
+                    <p>请输入访客密码继续访问</p>
+                    <button id="show-auth-button" style="margin-top: 20px; background: #3498db; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 14px; transition: all 0.3s ease;">
+                      点击认证
+                    </button>
+                  </div>
+                `;
+
+                // 添加认证按钮的点击事件监听器
+                setTimeout(() => {
+                  const authButton = document.getElementById('show-auth-button');
+                  if (authButton) {
+                    authButton.addEventListener('click', showAuthModal);
+                  }
+                }, 0);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('检查访问控制状态时出错:', error);
+        showToast('无法获取页面访问状态', true);
+        // 显示错误信息
+        keysContainer.innerHTML = '<div class="empty-state">无法获取访问控制状态<br>请刷新页面重试</div>';
+      }
+    }
+
+    // 显示认证弹窗
+    function showAuthModal() {
+      const authModal = document.getElementById('auth-modal');
+      authModal.classList.add('show');
+
+      // 聚焦到密码输入框
+      setTimeout(() => {
+        document.getElementById('guest-password').focus();
+      }, 300);
+    }
+
+    // 验证访客密码
+    async function verifyGuestPassword() {
+      const passwordInput = document.getElementById('guest-password');
+      const password = passwordInput.value.trim();
+      const errorMsg = document.getElementById('auth-error');
+
+      if (!password) {
+        errorMsg.textContent = '请输入密码';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch('/admin/api/verifyGuest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // 认证成功，保存token并加载密钥
+          authToken = data.token;
+          localStorage.setItem('guestToken', authToken);
+          document.getElementById('auth-modal').classList.remove('show');
+          loadKeys();
+        } else {
+          // 认证失败
+          errorMsg.textContent = data.message || '密码不正确';
+          errorMsg.style.display = 'block';
+          passwordInput.focus();
+        }
+      } catch (error) {
+        console.error('验证访客密码时出错:', error);
+        errorMsg.textContent = '验证失败，请重试';
+        errorMsg.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>

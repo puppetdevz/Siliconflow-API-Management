@@ -1,8 +1,9 @@
 import configService from '../service/configService';
 import keysService from '../service/keysService';
+import defaultConfig from '../config/defaultConfig.js';
 
 // 处理API代理，带负载均衡
-export async function handleAPIProxy(request, path) {
+export async function handleModelApi(request, path) {
 	// 验证API请求
 	const authHeader = request.headers.get('Authorization');
 	if (!authHeader) {
@@ -20,7 +21,6 @@ export async function handleAPIProxy(request, path) {
 	// 从Authorization头中提取token
 	const providedToken = authHeader.replace('Bearer ', '').trim();
 
-	// 从D1获取API密钥
 	const apiKey = await configService.getConfigValueByName('api_key', defaultConfig.API_KEY);
 
 	if (providedToken !== apiKey) {
@@ -36,7 +36,7 @@ export async function handleAPIProxy(request, path) {
 	}
 
 	// 获取所有有效密钥用于负载均衡
-	const allKeys = await keysService.getAllKeys();
+	const allKeys = await keysService.getKeys();
 	const validKeys = allKeys.filter((k) => k.balance > 0);
 
 	// 获取所有 Key 的总余额
@@ -44,8 +44,12 @@ export async function handleAPIProxy(request, path) {
 		const totalBalance = validKeys.reduce((sum, key) => sum + key.balance, 0);
 		return new Response(
 			JSON.stringify({
-				success: true,
-				balance: totalBalance,
+				code: 200,
+				message: 'ok',
+				status: true,
+				data: {
+					balance: totalBalance,
+				},
 			}),
 			{
 				headers: { 'Content-Type': 'application/json' },
@@ -106,5 +110,5 @@ export async function handleAPIProxy(request, path) {
 }
 
 export default {
-	handleAPIProxy,
+	handleModelApi,
 };
