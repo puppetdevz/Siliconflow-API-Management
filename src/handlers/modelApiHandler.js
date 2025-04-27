@@ -47,6 +47,8 @@ export async function handleModelApi(request, path) {
 				code: 200,
 				message: 'ok',
 				status: true,
+				success: true,
+				balance: totalBalance,
 				data: {
 					balance: totalBalance,
 				},
